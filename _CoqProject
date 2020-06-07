@@ -1,4 +1,5 @@
--Q . Lib
-AML.v
-AML_test.v
-AML_institution.v
+-R ./ext/Categories Categories
+-Q src/ Lib
+src/AML.v
+src/AML_test.v
+src/AML_institution.v
