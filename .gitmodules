@@ -1,0 +1,3 @@
+[submodule "ext/Categories"]
+	path = ext/Categories
+	url = git@github.com:amintimany/Categories.git
