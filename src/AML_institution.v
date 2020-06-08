@@ -29,14 +29,14 @@ Lemma SignatureMorphism_compose_assoc :
     SignatureMorphism_compose h (SignatureMorphism_compose g f)
     = SignatureMorphism_compose (SignatureMorphism_compose h g) f.
 Proof.
-  intros. auto.
+  intros. unfold SignatureMorphism_compose. f_equal.
 Qed.
 
 Lemma SignatureMorphism_compose_id_left :
   forall (A B : Signature) (f : @SignatureMorphism A B),
     SignatureMorphism_compose SignatureMorphism_id f = f.
 Proof.
-  intros. auto.
+  intros.  auto.
 Qed.
 
 Lemma SignatureMorphism_compose_id_right :
