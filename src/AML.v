@@ -1,11 +1,6 @@
 (* Applicative Matching logic *)
 Require Import Coq.Sets.Ensembles.
 
-Class CompleteLattice A : Type :=
-  {
-    meet : Ensemble A -> A
-  }.
-
 Record Signature : Type :=
     { evars : Set;
       svars : Set;
@@ -33,7 +28,7 @@ Inductive Pattern : Type :=
 
 Record Model : Type :=
 {
-  carrier : Set;
+  carrier : Type;
   apply : carrier -> carrier -> Ensemble carrier;
   interpretation : symbols(sigma) -> Ensemble carrier;
 }.
