@@ -3,14 +3,12 @@ Require Import Lib.AML.
 Require Import Categories.Essentials.Notations.
 Require Import Categories.Category.Main.
 
-Print Signature.
 Record SignatureMorphism{from to : Signature} : Type :=
   { evarsMorphism : evars from -> evars to;
     svarsMorphism : svars from -> svars to;
     symbolsMorphism : symbols from -> symbols to;
   }.
-Check evarsMorphism.
-Print Signature.
+
 Definition SignatureMorphism_id{sig:Signature} : @SignatureMorphism sig sig :=
   {| evarsMorphism := fun x => x;
      svarsMorphism := fun x => x;
@@ -23,7 +21,7 @@ Definition SignatureMorphism_compose{A B C : Signature}(g: @SignatureMorphism B 
      symbolsMorphism := fun x => symbolsMorphism g (symbolsMorphism f x);
   |}.
 
-Definition SignatureMorphism_compose_assoc :
+Lemma SignatureMorphism_compose_assoc :
   forall (A B C D : Signature)
          (f: @SignatureMorphism A B)
          (g: @SignatureMorphism B C)
@@ -34,6 +32,21 @@ Proof.
   intros. auto.
 Qed.
 
+Lemma SignatureMorphism_compose_id_left :
+  forall (A B : Signature) (f : @SignatureMorphism A B),
+    SignatureMorphism_compose SignatureMorphism_id f = f.
+Proof.
+  intros. auto.
+Qed.
+
+Lemma SignatureMorphism_compose_id_right :
+  forall (A B : Signature) (f : @SignatureMorphism A B),
+    SignatureMorphism_compose f SignatureMorphism_id = f.
+Proof.
+  intros. auto.
+Qed.
+
+
 Definition Signature_Cat : Category :=
   {| Obj := Signature;
      Hom := fun A B => @SignatureMorphism A B;
@@ -41,4 +54,6 @@ Definition Signature_Cat : Category :=
      assoc := SignatureMorphism_compose_assoc;
      assoc_sym := fun A B C D f g h => eq_sym (SignatureMorphism_compose_assoc A B C D f g h);
      id := @SignatureMorphism_id;
+     id_unit_left := SignatureMorphism_compose_id_left;
+     id_unit_right := SignatureMorphism_compose_id_right;
   |}.
