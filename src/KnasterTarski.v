@@ -111,3 +111,25 @@ Definition PostfixpointsOf {A : Type} {OS : OrderedSet A} (f : A -> A) : Ensembl
 Definition GreatestFixpointOf {A : Type} {OS : OrderedSet A} {L : CompleteLattice A}
            (f : A -> A) : A :=
   join (PostfixpointsOf f).
+
+Definition isFixpoint {A : Type} (f : A -> A) (p : A) : Prop :=
+  f p = p.
+
+Theorem GreatestFixpoint_fixpoint:
+  forall (A : Type) (OS : OrderedSet A) (L : CompleteLattice A) (f : A -> A),
+    MonotonicFunction f -> isFixpoint f (@GreatestFixpointOf A OS L f).
+Proof.
+  intros. destruct L.
+  intros. remember (PostfixpointsOf f) as D. remember (join D) as u.
+  assert (f_x_in_D : forall x:A, In A D x -> In A D (f x)).
+  intros.
+  assert (f_x_leq_f_f_x : leq (f x) (f (f x))).
+  unfold MonotonicFunction in H.
+  apply H. unfold In in H0.
+  rewrite -> HeqD in H0. unfold PostfixpointsOf in H0. apply H0.
+  unfold In. rewrite HeqD. unfold PostfixpointsOf. assumption.
+  assert (f_u_upper_D : upperBound D (f u)).
+  unfold upperBound. intros. rewrite -> Hequ. destruct L. destruct join_isJoin0.
+      
+      
+  
