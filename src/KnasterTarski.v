@@ -1,45 +1,43 @@
 Require Import Coq.Sets.Ensembles.
 Require Import Coq.Relations.Relation_Definitions.
 
-Record OrderedSet :=
-  { carrier : Type;
-    leq : relation carrier;
-    leq_order : order carrier leq;
+Class OrderedSet A : Type :=
+  { leq : relation A;
+    leq_order : order A leq;
   }.
 
-Definition upperBound {OS : OrderedSet} (X: Ensemble (carrier OS)) (ub: carrier OS) : Prop :=
-  forall (x: carrier OS), In (carrier OS) X x -> leq OS x ub.
+Definition upperBound {A : Type} {OS : OrderedSet A} (X: Ensemble A) (ub: A) : Prop :=
+  forall (x: A), In A X x -> leq x ub.
 
-Definition leastUpperBound {OS : OrderedSet} (X: Ensemble (carrier OS)) (lub: carrier OS) : Prop :=
+Definition leastUpperBound {A : Type} {OS : OrderedSet A} (X: Ensemble A) (lub: A) : Prop :=
   upperBound X lub /\
-  forall (ub : carrier OS), upperBound X ub -> leq OS lub ub.
+  forall (ub : A), upperBound X ub -> leq lub ub.
 
-Definition lowerBound {OS : OrderedSet} (X: Ensemble (carrier OS)) (lb: carrier OS) : Prop :=
-  forall (x: carrier OS), In (carrier OS) X x ->  leq OS lb x.
+Definition lowerBound {A : Type} {OS : OrderedSet A} (X: Ensemble A) (lb: A) : Prop :=
+  forall (x : A), In A X x ->  leq lb x.
 
-Definition greatestLowerBound {OS : OrderedSet} (X: Ensemble (carrier OS)) (glb: carrier OS) : Prop :=
+Definition greatestLowerBound {A : Type} {OS : OrderedSet A} (X : Ensemble A) (glb : A) : Prop :=
   lowerBound X glb /\
-  forall (lb : carrier OS), lowerBound X lb -> leq OS lb glb.
+  forall (lb : A), lowerBound X lb -> leq lb glb.
 
-Definition upperBoundsOf {OS : OrderedSet} (X : Ensemble (carrier OS)) : Ensemble (carrier OS) :=
+Definition upperBoundsOf {A : Type} {OS : OrderedSet A} (X : Ensemble A) : Ensemble A :=
   fun x => upperBound X x.
 
-Definition lowerBoundsOf {OS : OrderedSet} (X : Ensemble (carrier OS)) : Ensemble (carrier OS) :=
+Definition lowerBoundsOf {A : Type} {OS : OrderedSet A} (X : Ensemble A) : Ensemble A :=
   fun x => lowerBound X x.
 
-Definition isMeet {OS : OrderedSet} (meet : Ensemble (carrier OS) -> carrier OS) : Prop :=
-  forall (X : Ensemble (carrier OS)), greatestLowerBound X (meet X).
+Definition isMeet {A : Type} {OS : OrderedSet A} (meet : Ensemble A -> A) : Prop :=
+  forall (X : Ensemble A), greatestLowerBound X (meet X).
 
-Definition isJoin {OS : OrderedSet} (join : Ensemble (carrier OS) -> carrier OS) : Prop :=
-  forall (X : Ensemble (carrier OS)), leastUpperBound X (join X).
+Definition isJoin {A : Type} {OS : OrderedSet A} (join : Ensemble A -> A) : Prop :=
+  forall (X : Ensemble A), leastUpperBound X (join X).
 
-Definition joinFromMeet {OS : OrderedSet}
-            (meet : Ensemble (carrier OS) -> carrier OS)
-   : Ensemble (carrier OS) -> carrier OS :=
+Definition joinFromMeet {A : Type} {OS : OrderedSet A} (meet : Ensemble A -> A)
+  : Ensemble A -> A :=
   fun X => meet (upperBoundsOf X).
 
-Lemma joinFromMeet_lub: forall (OS : OrderedSet)
-                                (meet : Ensemble (carrier OS) -> carrier OS),
+Lemma joinFromMeet_lub: forall (A : Type) (OS : OrderedSet A)
+                                (meet : Ensemble A -> A),
      isMeet meet -> isJoin (joinFromMeet meet).
 Proof.
   intros. unfold isJoin. intros. unfold leastUpperBound.
@@ -56,18 +54,17 @@ Proof.
    - (* least *)
      intros. unfold joinFromMeet. unfold isMeet in H.
      specialize (H (upperBoundsOf X)).
-     assert (ub_in : In (carrier OS) (upperBoundsOf X) ub). unfold In. apply H0.
+     assert (ub_in : In A (upperBoundsOf X) ub). unfold In. apply H0.
      destruct H. unfold lowerBound in H. apply H. apply ub_in.
 Qed.
 
-Definition meetFromJoin {OS : OrderedSet}
-            (join : Ensemble (carrier OS) -> carrier OS)
-   : Ensemble (carrier OS) -> carrier OS :=
+Definition meetFromJoin {A : Type} {OS : OrderedSet A} (join : Ensemble A -> A)
+   : Ensemble A -> A :=
   fun X => join (lowerBoundsOf X).
 
 (* Exactly a dual of joinFromMeet_lub. But there should be some way to avoid duplication. *)
-Lemma meetFromJoin_glb: forall (OS : OrderedSet)
-                                (join : Ensemble (carrier OS) -> carrier OS),
+Lemma meetFromJoin_glb: forall (A : Type) (OS : OrderedSet A)
+                                (join : Ensemble A -> A),
      isJoin join -> isMeet (meetFromJoin join).
 Proof.
   intros. unfold isMeet. intros. unfold greatestLowerBound.
@@ -84,7 +81,7 @@ Proof.
    - (* greatest *)
      intros. unfold meetFromJoin. unfold isJoin in H.
      specialize (H (lowerBoundsOf X)).
-     assert (lb_in : In (carrier OS) (lowerBoundsOf X) lb). unfold In. apply H0.
+     assert (lb_in : In A (lowerBoundsOf X) lb). unfold In. apply H0.
      destruct H. unfold upperBound in H. apply H. apply lb_in.
 Qed.
 
@@ -92,18 +89,14 @@ Qed.
 Record CompleteLattice :=
   { orderedSet : OrderedSet;
     meet : Ensemble (carrier orderedSet) -> (carrier orderedSet);
-    meet_glb : isMeet meet;
+    join : Ensemble (carrier orderedSet) -> (carrier orderedSet);
+    meet_isMeet : isMeet meet;
+    join_isJoin : isJoin join;
   }.
 
-Definition join (L:CompleteLattice) (S : Ensemble (carrier L)) : carrier L :=
-  meet L (fun ub : carrier L => forall x : carrier L, In (carrier L) S x -> leq L x ub).
-
-(* TODO: prove properties of join *)
-Lemma join_upper_bound : forall (L:CompleteLattice) (X : Ensemble (carrier L)),
-    join L 
-
-Definition MonotonicFunction {L:CompleteLattice} (f : carrier L -> carrier L) :=
-  forall (x y : carrier L), leq L x y -> leq L (f x) (f y).
+Definition MonotonicFunction {L:CompleteLattice}
+           (f : carrier (orderedSet L) -> carrier (orderedSet L)) :=
+  forall (x y : carrier (orderedSet L)), leq (orderedSet L) x y -> leq (orderedSet L) (f x) (f y).
 
 Definition PrefixpointsOf {L:CompleteLattice} (f : carrier L -> carrier L) : Ensemble (carrier L) :=
   fun x => leq L (f x) x.
