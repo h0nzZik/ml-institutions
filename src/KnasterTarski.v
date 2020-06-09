@@ -33,18 +33,16 @@ Definition isMeet {OS : OrderedSet} (meet : Ensemble (carrier OS) -> carrier OS)
 Definition isJoin {OS : OrderedSet} (join : Ensemble (carrier OS) -> carrier OS) : Prop :=
   forall (X : Ensemble (carrier OS)), leastUpperBound X (join X).
 
- Definition joinFromMeet {OS : OrderedSet}
+Definition joinFromMeet {OS : OrderedSet}
             (meet : Ensemble (carrier OS) -> carrier OS)
    : Ensemble (carrier OS) -> carrier OS :=
   fun X => meet (upperBoundsOf X).
 
-
- 
- Lemma joinFromMeet_lub: forall (OS : OrderedSet)
+Lemma joinFromMeet_lub: forall (OS : OrderedSet)
                                 (meet : Ensemble (carrier OS) -> carrier OS),
      isMeet meet -> isJoin (joinFromMeet meet).
- Proof.
-   intros. unfold isJoin. intros. unfold leastUpperBound.
+Proof.
+  intros. unfold isJoin. intros. unfold leastUpperBound.
    split.
    - (* upper bound *)
      unfold upperBound. intros.
@@ -60,16 +58,41 @@ Definition isJoin {OS : OrderedSet} (join : Ensemble (carrier OS) -> carrier OS)
      specialize (H (upperBoundsOf X)).
      assert (ub_in : In (carrier OS) (upperBoundsOf X) ub). unfold In. apply H0.
      destruct H. unfold lowerBound in H. apply H. apply ub_in.
- Qed.
- 
+Qed.
+
+Definition meetFromJoin {OS : OrderedSet}
+            (join : Ensemble (carrier OS) -> carrier OS)
+   : Ensemble (carrier OS) -> carrier OS :=
+  fun X => join (lowerBoundsOf X).
+
+(* Exactly a dual of joinFromMeet_lub. But there should be some way to avoid duplication. *)
+Lemma meetFromJoin_glb: forall (OS : OrderedSet)
+                                (join : Ensemble (carrier OS) -> carrier OS),
+     isJoin join -> isMeet (meetFromJoin join).
+Proof.
+  intros. unfold isMeet. intros. unfold greatestLowerBound.
+   split.
+   - (* lower bound *)
+     unfold lowerBound. intros.
+     unfold meetFromJoin.
+     assert (xupper: upperBound (lowerBoundsOf X) x).
+     unfold upperBound. intros. unfold lowerBoundsOf in H1. unfold In in H1.
+     unfold In in H0. unfold lowerBound in H1. apply H1. unfold In. apply H0.
+     unfold isJoin in H.
+     assert (meetX_lub: leastUpperBound (lowerBoundsOf X) (join (lowerBoundsOf X))).
+     apply H. unfold leastUpperBound in meetX_lub. destruct meetX_lub. apply H2. apply xupper.
+   - (* greatest *)
+     intros. unfold meetFromJoin. unfold isJoin in H.
+     specialize (H (lowerBoundsOf X)).
+     assert (lb_in : In (carrier OS) (lowerBoundsOf X) lb). unfold In. apply H0.
+     destruct H. unfold upperBound in H. apply H. apply lb_in.
+Qed.
+
 
 Record CompleteLattice :=
   { orderedSet : OrderedSet;
     meet : Ensemble (carrier orderedSet) -> (carrier orderedSet);
-    meet_glb :
-      forall (X : Ensemble (carrier orderedSet)),
-        greatestLowerBound X (meet X);
-                                       
+    meet_glb : isMeet meet;
   }.
 
 Definition join (L:CompleteLattice) (S : Ensemble (carrier L)) : carrier L :=
