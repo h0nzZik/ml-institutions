@@ -86,28 +86,28 @@ Proof.
 Qed.
 
 
-Record CompleteLattice :=
-  { orderedSet : OrderedSet;
-    meet : Ensemble (carrier orderedSet) -> (carrier orderedSet);
-    join : Ensemble (carrier orderedSet) -> (carrier orderedSet);
+Class CompleteLattice A `{OrderedSet A} :=
+  {
+    meet : Ensemble A -> A;
+    join : Ensemble A -> A;
     meet_isMeet : isMeet meet;
     join_isJoin : isJoin join;
   }.
 
-Definition MonotonicFunction {L:CompleteLattice}
-           (f : carrier (orderedSet L) -> carrier (orderedSet L)) :=
-  forall (x y : carrier (orderedSet L)), leq (orderedSet L) x y -> leq (orderedSet L) (f x) (f y).
+Definition MonotonicFunction {A : Type} {OS : OrderedSet A}
+           (f : A -> A) :=
+  forall (x y : A), leq x y -> leq (f x) (f y).
 
-Definition PrefixpointsOf {L:CompleteLattice} (f : carrier L -> carrier L) : Ensemble (carrier L) :=
-  fun x => leq L (f x) x.
+Definition PrefixpointsOf {A : Type} {OS : OrderedSet A} (f : A -> A) : Ensemble A :=
+  fun x => leq (f x) x.
 
-Definition LeastFixpointOf {L:CompleteLattice}
-           (f : carrier L -> carrier L) : carrier L :=
-  meet L (PrefixpointsOf f).
+Definition LeastFixpointOf {A : Type} {OS : OrderedSet A} {L : CompleteLattice A}
+           (f : A -> A) : A :=
+  meet (PrefixpointsOf f).
 
-Definition PostfixpointsOf {L:CompleteLattice} (f : carrier L -> carrier L) : Ensemble (carrier L) :=
-  fun x => leq L x (f x).
+Definition PostfixpointsOf {A : Type} {OS : OrderedSet A} (f : A -> A) : Ensemble A :=
+  fun x => leq x (f x).
 
-Definition GreatestFixpointOf {L:CompleteLattice}
-           (f : carrier L -> carrier L) : carrier L :=
-  join L (PostfixpointsOf f).
+Definition GreatestFixpointOf {A : Type} {OS : OrderedSet A} {L : CompleteLattice A}
+           (f : A -> A) : A :=
+  join (PostfixpointsOf f).
