@@ -119,17 +119,59 @@ Theorem GreatestFixpoint_fixpoint:
   forall (A : Type) (OS : OrderedSet A) (L : CompleteLattice A) (f : A -> A),
     MonotonicFunction f -> isFixpoint f (@GreatestFixpointOf A OS L f).
 Proof.
-  intros. destruct L.
-  intros. remember (PostfixpointsOf f) as D. remember (join D) as u.
+  (* Wikipedia's proof: https://en.wikipedia.org/wiki/Knaster%E2%80%93Tarski_theorem *)
+  intros. rename H into f_monotonic. unfold MonotonicFunction in f_monotonic.
+  remember (PostfixpointsOf f) as D. remember (join D) as u.
   assert (f_x_in_D : forall x:A, In A D x -> In A D (f x)).
   intros.
   assert (f_x_leq_f_f_x : leq (f x) (f (f x))).
-  unfold MonotonicFunction in H.
-  apply H. unfold In in H0.
-  rewrite -> HeqD in H0. unfold PostfixpointsOf in H0. apply H0.
+  apply f_monotonic. unfold In in H.
+  rewrite -> HeqD in H. unfold PostfixpointsOf in H. apply H.
   unfold In. rewrite HeqD. unfold PostfixpointsOf. assumption.
+  remember join_isJoin as J. unfold isJoin in J.
+
+  (* introduce u_upper and u_least *)
+  remember (J D) as J1. clear HeqJ1. destruct J1.
+  rename H into u_upper. rewrite <- Hequ in u_upper. unfold upperBound in u_upper.
+  rename H0 into u_least. rewrite <- Hequ in u_least.
+
+  (* introduce f_u_upper_D *)
   assert (f_u_upper_D : upperBound D (f u)).
-  unfold upperBound. intros. rewrite -> Hequ. destruct L. destruct join_isJoin0.
+  unfold upperBound. intros.
+  assert (x_le_u : leq x u). apply u_upper. assumption.
+  assert (f_x_le_f_u : leq (f x) (f u)). apply f_monotonic. assumption.
+  remember H as x_le_f_x. clear Heqx_le_f_x. rewrite -> HeqD in x_le_f_x.
+  unfold In in x_le_f_x. unfold PostfixpointsOf in x_le_f_x.
+  assert (x_le_f_u : leq x (f u)).
+  remember (ord_trans A leq leq_order) as leq_transitive. clear Heqleq_transitive.
+  unfold transitive in leq_transitive. 
+  apply (leq_transitive x (f x) (f u) x_le_f_x f_x_le_f_u). assumption.
+  
+  (* u <= f(u) *)
+  assert (u_le_fu : leq u (f u)). apply u_least. assumption.
+
+  (* u \in D *)
+  assert (u_in_D : In A D u). rewrite -> HeqD. unfold In. unfold PostfixpointsOf. assumption.
+
+  (* f(u) <= f(f(u)) *)
+  assert (f_u_le_f_f_u : leq (f u) (f (f u)) ). apply f_monotonic. assumption.
+  
+  (* f(u) \in D *)
+  assert (f_u_in_D : In A D (f u)). rewrite -> HeqD. unfold In. unfold PostfixpointsOf. assumption.
+
+  (* f(u) <= u *)
+  assert (f_u_le_u : leq (f u) u). apply u_upper. assumption.
+
+  (* f(u) = u *)
+  assert (f_u_eq_u : f u = u).
+  pose (leq_antisym := ord_antisym A leq leq_order).
+  unfold antisymmetric in leq_antisym. auto.
+
+  (* isFixpoint *)
+  unfold isFixpoint. unfold GreatestFixpointOf. subst. assumption.
+Qed.
+
+
       
       
   
