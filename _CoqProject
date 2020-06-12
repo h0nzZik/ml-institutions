@@ -3,4 +3,5 @@
 src/KnasterTarski.v
 src/AML.v
 src/AML_test.v
+src/Institutions.v
 src/AML_institution.v
