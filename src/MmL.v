@@ -7,15 +7,14 @@ Record Signature : Type :=
     evar : sort -> Set;
     svar : sort -> Set;
     symbol : list sort * sort -> Set;
-    (*sortOfSymbol : symbol -> list sort * sort;*)
-    evar_idx : (s:sort) -> nat -> evar s; }.
-    svar_idx : sort -> nat -> svar;
-    }.
-    evar_idx_inj: forall (s1 s2 : sort) (x y : nat),
-        (evar_idx s1 x) = (evar_idx s2 y) -> x = y /\ s1 = s2;
-    svar_idx_inj: forall (s1 s2 : sort) (x y : nat),
-        (svar_idx s1 x) = (svar_idx s2 y) -> x = y /\ s1 = s2;
-    }.
+
+    evar_idx : forall s:sort, nat -> evar s;
+    svar_idx : forall s:sort, nat -> svar s;
+    evar_idx_inj: forall (s : sort) (x y : nat),
+        (evar_idx s x) = (evar_idx s y) -> x = y;
+    svar_idx_inj: forall (s : sort) (x y : nat),
+        (svar_idx s x) = (svar_idx s y) -> x = y;
+  }.
 
 Parameter sigma : Signature.
 
@@ -23,12 +22,14 @@ Check sigma.
 
 Inductive Pattern {s : sort sigma} : Type :=
 | Bottom : Pattern
-| EVar : forall (x : evar(sigma)), sortOfEvar sigma x = s -> x -> Pattern
-| SVar : svar(sigma) -> Pattern
-| Sym : symbol(sigma) -> Pattern
+| EVar : evar sigma s -> Pattern
+| SVar : svar sigma s -> Pattern
+(* TODO parameters of the symbol *)                           
+| Sym : forall (xs : list (sort sigma)), symbol sigma (xs, s) -> list Pattern -> Pattern
 | Impl : Pattern -> Pattern -> Pattern
+                                 (*
 | Ex : evar(sigma) -> Pattern -> Pattern
-| Mu : svar(sigma) -> Pattern -> Pattern
+| Mu : svar(sigma) -> Pattern -> Pattern*)
 .
 Check EVar.
 
