@@ -4,6 +4,7 @@ Require Import Coq.Sets.Ensembles.
 
 Record Signature : Type :=
   { sort: Set;
+    sort_eq_dec: forall s1 s2 : sort, {s1 = s2} + {s1 <> s2};
     evar : sort -> Set;
     svar : sort -> Set;
     symbol : list sort * sort -> Set;
@@ -45,7 +46,7 @@ Definition sortOf (phi : Pattern) : sort sigma :=
   end.
 
 
-Fixpoint well_formed (phi : Pattern) : Prop :=
+Fixpoint well_sorted (phi : Pattern) : Prop :=
   match phi with
   | Bottom _ => True
   | EVar _ _ => True
@@ -64,3 +65,26 @@ Fixpoint well_formed (phi : Pattern) : Prop :=
   | Mu s _ _ p => sortOf p = s                               
   end.
 
+Lemma sorts_eq_impl_svar_eq : forall (s1 s2 : sort sigma), s1 = s2 -> svar sigma s1 = svar sigma s2.
+Proof. intros. subst. reflexivity.
+Qed.
+
+Check eq_rec.
+
+
+Fixpoint SetVariableOccurences (phi : Pattern)(s : sort sigma)(v: svar sigma s) : Prop * Prop :=
+  match phi with
+  | Bottom _ => (False, False)
+  | EVar _ _ => (False, False)
+  |  SVar s' v' =>
+     (
+       (match sort_eq_dec sigma s s' with
+          (* magic: https://stackoverflow.com/a/59189036/6209703 *)
+        | left e => (eq_rec _ (svar sigma) v _ e) = v'
+        | right _ => False
+        end
+       ), False)
+  | _ => (False, False) (* TODO *)
+  end.
+  (False, False).
+   
