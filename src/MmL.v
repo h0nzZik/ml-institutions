@@ -1,6 +1,6 @@
 (* Matching mu logic *)
 Require Import Coq.Sets.Ensembles.
-(* Require Import Coq.Lists.List. *)
+Require Import Coq.Lists.List.
 
 Record Signature : Type :=
   { sort: Set;
@@ -105,3 +105,24 @@ Fixpoint SetVariableOccurences (phi : Pattern)(s : sort sigma)(v: svar sigma s) 
 Definition hasNegativeOccurence (phi : Pattern) (s : sort sigma) (v : svar sigma s) : Prop :=
   let (_, has_neg) := SetVariableOccurences phi s v in has_neg.
 
+Fixpoint noNegativeOccurenceOfMuBoundVariable (phi : Pattern) : Prop :=
+  match phi with
+  | Bottom _ => True
+  | EVar _ _ => True
+  | SVar _ _ => True
+  | Sym _ _ _ patterns
+    => fold_left (fun (b:Prop) (p:Pattern) => b /\ noNegativeOccurenceOfMuBoundVariable p)
+                 patterns True
+  | Impl _ p1 p2
+    => noNegativeOccurenceOfMuBoundVariable p1
+       /\ noNegativeOccurenceOfMuBoundVariable p2
+  | Ex _ _ _ p => noNegativeOccurenceOfMuBoundVariable p
+  | Mu _ s v p
+    => not (hasNegativeOccurence p s v)
+       /\ noNegativeOccurenceOfMuBoundVariable p
+  end.
+
+Definition well_formed (p : Pattern) : Prop :=
+  well_sorted p /\ noNegativeOccurenceOfMuBoundVariable p
+.
+           
