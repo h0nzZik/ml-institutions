@@ -65,13 +65,7 @@ Fixpoint well_sorted (phi : Pattern) : Prop :=
   | Mu s _ _ p => sortOf p = s                               
   end.
 
-Lemma sorts_eq_impl_svar_eq : forall (s1 s2 : sort sigma), s1 = s2 -> svar sigma s1 = svar sigma s2.
-Proof. intros. subst. reflexivity.
-Qed.
-
-Check eq_rec.
-
-
+(* returns a pair (hasPositiveOccurence, hasNegativeOccurence) *)
 Fixpoint SetVariableOccurences (phi : Pattern)(s : sort sigma)(v: svar sigma s) : Prop * Prop :=
   match phi with
   | Bottom _ => (False, False)
@@ -84,7 +78,30 @@ Fixpoint SetVariableOccurences (phi : Pattern)(s : sort sigma)(v: svar sigma s) 
         | right _ => False
         end
        ), False)
-  | _ => (False, False) (* TODO *)
+  | Sym _ _ _ patterns =>
+    ( fix f (ps : list Pattern) :=
+        match ps with
+        | nil => (False, False)
+        | cons p ps' => let (b1, b2) := SetVariableOccurences p s v in
+                        let (b3, b4) := f ps'
+                        in (b1 \/ b3, b2 \/ b4)
+        end             
+    ) patterns
+  | Impl _ p1 p2 =>
+    let (pos_p1, neg_p1) := SetVariableOccurences p1 s v in
+    let (pos_p2, neg_p2) := SetVariableOccurences p2 s v in
+    (neg_p1 \/ pos_p2, pos_p1 \/ neg_p2)
+  | Ex _ _ _ p => SetVariableOccurences p s v
+  | Mu _ s' v' p =>
+    match sort_eq_dec sigma s s' with
+    | left e =>
+      let v_v'_equal := (eq_rec _ (svar sigma) v _ e) = v' in
+      let (pos, neg) := SetVariableOccurences p s v in
+      ( (not v_v'_equal) /\ pos, (not v_v'_equal) /\ neg)
+    | right _ => SetVariableOccurences p s v
+    end
   end.
-  (False, False).
-   
+
+Definition hasNegativeOccurence (phi : Pattern) (s : sort sigma) (v : svar sigma s) : Prop :=
+  let (_, has_neg) := SetVariableOccurences phi s v in has_neg.
+
