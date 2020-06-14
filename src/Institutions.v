@@ -7,7 +7,7 @@ Require Import Categories.NatTrans.Main.
 
 Class Institution : Type :=
   { Sign : Category;
-    Mod : Functor Sign (Opposite Cat);
+    Mod : Functor Sign (Cat^op);
     (* We may need to generalize the following to `Coq_Cat Type` *)
     Sen : Functor Sign Set_Cat;
     (* Sign-indexed relation on objects of (Mod s) x (Sen s) *)
@@ -20,11 +20,15 @@ Class Institution : Type :=
 Check Functor_compose.
 Record InstitutionMorphism (I1 I2 : Institution) :=
   { sign_transform : Functor (@Sign I1) (@Sign I2);
-    mod_transform : NatTrans (@Mod I1) (Functor_compose sign_transform (@Mod I2));
+    (* The paper requires mod_transform to be defined like this: *)
+    (* mod_transform : NatTrans (@Mod I1) (Functor_compose sign_transform (@Mod I2)); *)
+    (* But then Coq complains, since in the satisfaction condition, m has wrong type *)
+    mod_transform : NatTrans (Functor_compose sign_transform (@Mod I2)) (@Mod I1);
     sen_transform : NatTrans (Functor_compose sign_transform  (@Sen I2)) (@Sen I1);
     instmorph_satisf_condition :
       forall (sigma : @Sign I1)
              (m : (FO (@Mod I1)) sigma)
              (f' : (FO (@Sen I2)) (FO sign_transform sigma)),
-        True;
+        @satisfies I1 sigma m (Trans sen_transform sigma f')
+        <-> @satisfies I2 (FO sign_transform sigma) (FO (Trans mod_transform sigma) m) f';
   }.
