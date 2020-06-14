@@ -125,4 +125,18 @@ Fixpoint noNegativeOccurenceOfMuBoundVariable (phi : Pattern) : Prop :=
 Definition well_formed (p : Pattern) : Prop :=
   well_sorted p /\ noNegativeOccurenceOfMuBoundVariable p
 .
-           
+
+Check map.
+
+
+Record Model : Type :=
+  { carrier : forall (s : sort sigma), Set;
+    (* nonempty *)
+    carrier_el : forall (s : sort sigma), carrier s;
+    interpretation :
+      forall (s : sort sigma)
+             (ss : list (sort sigma))
+             (sym : symbol sigma (ss, s))
+             (args : map (fun x => carrier x) ss),
+        Ensemble (carrier s);
+  }.
