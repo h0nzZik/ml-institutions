@@ -126,17 +126,37 @@ Definition well_formed (p : Pattern) : Prop :=
   well_sorted p /\ noNegativeOccurenceOfMuBoundVariable p
 .
 
-Check map.
+Definition CarrierType : Type := forall (s : sort sigma), Set.
 
+Record SortedElement {carrier : CarrierType} :=
+  { se_sort : sort sigma;
+    se_element : carrier se_sort;
+  }.
+
+Definition selist {carrier : CarrierType} :=
+  list (@SortedElement carrier).
+
+Fixpoint selist_sorted { carrier : CarrierType }
+         (elements : @selist carrier)
+         (sorts : list (sort sigma))
+  :=
+  match elements, sorts with
+  | nil, nil => True
+  | nil, cons _ _ => False
+  | cons _ _, nil => False
+  | cons e es, cons s ss => se_sort e = s /\ selist_sorted es ss
+  end.
 
 Record Model : Type :=
   { carrier : forall (s : sort sigma), Set;
     (* nonempty *)
     carrier_el : forall (s : sort sigma), carrier s;
+
     interpretation :
       forall (s : sort sigma)
              (ss : list (sort sigma))
              (sym : symbol sigma (ss, s))
-             (args : map (fun x => carrier x) ss),
+             (args : list (@SortedElement carrier)),
+        selist_sorted args ss ->
         Ensemble (carrier s);
   }.
