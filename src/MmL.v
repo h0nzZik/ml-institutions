@@ -133,21 +133,18 @@ Record SortedElement {carrier : CarrierType} :=
     se_element : carrier se_sort;
   }.
 
-Definition selist {carrier : CarrierType} :=
-  list (@SortedElement carrier).
-
-Fixpoint selist_sorted { carrier : CarrierType }
-         (elements : @selist carrier)
+Fixpoint SortedElementList_sorted { carrier : CarrierType }
+         (elements : list (@SortedElement carrier))
          (sorts : list (sort sigma))
   :=
   match elements, sorts with
   | nil, nil => True
   | nil, cons _ _ => False
   | cons _ _, nil => False
-  | cons e es, cons s ss => se_sort e = s /\ selist_sorted es ss
+  | cons e es, cons s ss => se_sort e = s /\ SortedElementList_sorted es ss
   end.
 
-Fixpoint seEnsemblelist_sorted { carrier : CarrierType }
+Fixpoint SortedElementEnsembleList_sorted { carrier : CarrierType }
          (elements : list (Ensemble (@SortedElement carrier)))
          (sorts : list (sort sigma))
   :=
@@ -158,7 +155,7 @@ Fixpoint seEnsemblelist_sorted { carrier : CarrierType }
   | cons e es, cons s ss
     => (forall x : @SortedElement carrier,
            Ensembles.In (@SortedElement carrier) e x -> se_sort x = s)
-       /\ seEnsemblelist_sorted es ss
+       /\ SortedElementEnsembleList_sorted es ss
   end.
 
 Fixpoint list_in_ensemble_list (a : Type)(elems : list a)(sets : list (Ensemble a)) : Prop :=
@@ -180,16 +177,18 @@ Record Model : Type :=
              (ss : list (sort sigma))
              (sym : symbol sigma (ss, s))
              (args : list (@SortedElement carrier)),
-        selist_sorted args ss ->
+        SortedElementList_sorted args ss ->
         Ensemble (carrier s);
   }.
 
+Check SortedElementList_sorted.
 (* Pointwise extension of the interpretation *)
 Definition interpretation_ex {M : Model}
            (s : sort sigma)
            (ss : list (sort sigma))
            (sym : symbol sigma (ss, s))
            (args : list (Ensemble (@SortedElement (carrier M))))
+           (sorted: SortedElementEnsembleList_sorted args ss)
            (* TODO args well sorted *)
   : Ensemble (carrier M s) :=
   fun m =>
