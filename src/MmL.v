@@ -160,3 +160,25 @@ Record Model : Type :=
         selist_sorted args ss ->
         Ensemble (carrier s);
   }.
+
+(* For some reason, Coq picks In from the List module. *)
+Check In.
+Fixpoint list_in_ensemble_list (a : Type)(elems : list a)(sets : list (Ensemble a)) : Prop :=
+  match elems, sets with
+  | nil,nil => True
+  | nil, cons _ _ => False
+  | cons _ _, nil => False
+  | cons e es, cons s ss => (In a s e) (* /\ (list_in_ensemble_list a es ss)*)
+  end.
+
+(* Pointwise extension of the interpretation *)
+Definition interpretation_ex {M : Model}
+           (s : sort sigma)
+           (ss : list (sort sigma))
+           (sym : symbol sigma (ss, s))
+           (args : list (Ensemble (@SortedElement (carrier M))))
+  : Ensemble (carrier M s) :=
+  fun m =>
+    exists args' : list (@SortedElement (carrier M)),
+
+            
