@@ -146,7 +146,7 @@ Fixpoint SortedElementList_sorted { carrier : CarrierType }
 
 Fixpoint SortedElementEnsembleList_sorted { carrier : CarrierType }
          (elements : list (Ensemble (@SortedElement carrier)))
-         (sorts : list (sort sigma))
+         (sorts : list (sort sigma)) : Prop
   :=
   match elements, sorts with
   | nil, nil => True
@@ -158,14 +158,55 @@ Fixpoint SortedElementEnsembleList_sorted { carrier : CarrierType }
        /\ SortedElementEnsembleList_sorted es ss
   end.
 
-Fixpoint list_in_ensemble_list (a : Type)(elems : list a)(sets : list (Ensemble a)) : Prop :=
+(*
+Inductive list_in_ensemble_list (a : Type) : Prop :=
+| forall a:Type, list_in_ensemble_list a nil nil
+.*)
+
+Fixpoint list_in_ensemble_list {a : Type}(elems : list a)(sets : list (Ensemble a)) : Prop :=
   match elems, sets with
   | nil,nil => True
   | nil, cons _ _ => False
   | cons _ _, nil => False
-  | cons e es, cons s ss => Ensembles.In a s e /\ list_in_ensemble_list a es ss
+  | cons e es, cons s ss => Ensembles.In a s e /\ list_in_ensemble_list es ss
   end.
 
+Lemma ensemble_list_sorted_implies_list_sorted:
+  forall
+      { carrier : CarrierType }
+      ( setList : list (Ensemble (@SortedElement carrier)))
+      ( sortList : list (sort sigma)),
+    (SortedElementEnsembleList_sorted setList sortList) ->
+    forall ( elementList : list (@SortedElement carrier)),
+      list_in_ensemble_list elementList setList ->
+      SortedElementList_sorted elementList sortList.
+Proof.
+  (*
+  intros. induction elementList, setList.
+  - simpl in *. apply H.
+  - simpl in H0. inversion H0.
+  - simpl in H0. inversion H0.
+  - simpl in *. destruct sortList.
+    inversion H.
+    destruct H as [elementsSorted setListSorted].
+    destruct H0 as [a_in_e setList_in_elementList]. split.
+    apply elementsSorted. assumption.
+    *)
+
+  intros. induction setList, sortList, elementList; simpl in *; try inversion H; try inversion H0.
+  - apply H.
+  - destruct H as [elementsSorted setListSorted].
+    destruct H0 as [a_in_e setList_in_elementList].
+    split. apply elementsSorted. assumption.
+    destruct setList.
+    * 
+    apply IHsetList.
+    * destruct setList.
+
+
+  Admitted.
+      
+                      
 
 Record Model : Type :=
   { carrier : forall (s : sort sigma), Set;
@@ -183,17 +224,17 @@ Record Model : Type :=
 
 Check SortedElementList_sorted.
 (* Pointwise extension of the interpretation *)
-Definition interpretation_ex {M : Model}
+Program Definition interpretation_ex {M : Model}
            (s : sort sigma)
            (ss : list (sort sigma))
            (sym : symbol sigma (ss, s))
            (args : list (Ensemble (@SortedElement (carrier M))))
            (sorted: SortedElementEnsembleList_sorted args ss)
-           (* TODO args well sorted *)
   : Ensemble (carrier M s) :=
   fun m =>
-    exists args' : list (@SortedElement (carrier M)),
-      list_in_ensemble_list (@SortedElement (carrier M)) args' args
-      /\ False. 
+    exists (args' : list (@SortedElement (carrier M)))
+           (p : list_in_ensemble_list args' args),
+    Ensembles.In (carrier M s) (interpretation M s ss sym args' _) m.
+Next Obligation.
 
             
