@@ -1,7 +1,6 @@
 (* Matching mu logic *)
 Require Import Coq.Sets.Ensembles.
 Require Import Coq.Lists.List.
-Require Import Program.
 
 Record Signature : Type :=
   { sort: Set;
@@ -134,19 +133,21 @@ Record SortedElement {carrier : CarrierType} :=
     se_element : carrier se_sort;
   }.
 
-Inductive SEList_haveSorts : forall (carrier : CarrierType),
-    list (@SortedElement carrier) -> list (sort sigma) -> Prop :=
-| sels_nil: forall (carrier : CarrierType), SEList_haveSorts carrier nil nil
-| sels_cons: forall (carrier : CarrierType)
-                    (e : (@SortedElement carrier))
-                    (s : sort sigma)
-                    (es : list (@SortedElement carrier))
-                    (ss : list (sort sigma)),
-    se_sort e = s /\ SEList_haveSorts carrier es ss
-    -> SEList_haveSorts carrier (cons e es) (cons s ss)
-.
+Fixpoint zipWith {A B C : Type}(f: A -> B -> C)(xs : list A)(ys : list B) : list C :=
+  match xs,ys with
+  | nil, nil => nil
+  | cons _ _, nil => nil
+  | nil, cons _ _ => nil
+  | cons x xs, cons y ys => cons (f x y) (zipWith f xs ys)
+  end.
 
-Definition SEEnsemble_hasSort
+Definition SortedElementList_sorted { carrier : CarrierType }
+         (elements : list (@SortedElement carrier))
+         (sorts : list (sort sigma))
+  := length elements = length sorts
+     /\ fold_left and (zipWith (fun e s => se_sort e = s) elements sorts) True.
+
+Definition SortedElementEnsemble_hasSort
            { carrier : CarrierType }
            (e : Ensemble (@SortedElement carrier))
            (s : sort sigma)
@@ -156,55 +157,66 @@ Definition SEEnsemble_hasSort
       Ensembles.In (@SortedElement carrier) e x -> se_sort x = s
 .
 
-Inductive SEEnsembleList_haveSorts :
-  forall (carrier : CarrierType),
-         list (Ensemble (@SortedElement carrier))
-         -> list (sort sigma) -> Prop :=
-| seels_nil : forall (carrier : CarrierType), SEEnsembleList_haveSorts carrier nil nil
-| seels_cons : forall (carrier : CarrierType)
-                      (e : Ensemble (@SortedElement carrier))
-                      (s : sort sigma)
-                      (es : list (Ensemble (@SortedElement carrier)))
-                      (ss : list (sort sigma)),
+Definition SortedElementEnsembleList_sorted { carrier : CarrierType }
+         (elements : list (Ensemble (@SortedElement carrier)))
+         (sorts : list (sort sigma)) : Prop
+  := length elements = length sorts
+     /\ fold_left and (zipWith SortedElementEnsemble_hasSort elements sorts) True.
 
-    SEEnsemble_hasSort e s ->
-    SEEnsembleList_haveSorts carrier es ss ->
-    SEEnsembleList_haveSorts carrier (cons e es) (cons s ss)
-.                                                                       
+Definition list_in_ensemble_list {a : Type}(elems : list a)(sets : list (Ensemble a)) : Prop :=
+  length elems = length sets
+  /\ fold_left and (zipWith (Ensembles.In a) sets elems) True.
 
-Inductive List_in_EnsembleList : forall (a : Type), list a -> list (Ensemble a) -> Prop :=
-| liel_nil: forall (a : Type), List_in_EnsembleList a nil nil
-| liel_cons: forall (a : Type)(x : a)(y : Ensemble a)
-                    (xs : list a)(ys : list (Ensemble a)),
-    Ensembles.In a y x ->
-    List_in_EnsembleList a xs ys ->
-    List_in_EnsembleList a (cons x xs) (cons y ys)
-.                                                    
-
-Check SEList_haveSorts_ind.
 Lemma ensemble_list_sorted_implies_list_sorted:
   forall
       { carrier : CarrierType }
       ( setList : list (Ensemble (@SortedElement carrier)))
       ( sortList : list (sort sigma)),
-    (SEEnsembleList_haveSorts carrier setList sortList) ->
+    (SortedElementEnsembleList_sorted setList sortList) ->
     forall ( elementList : list (@SortedElement carrier)),
-      List_in_EnsembleList (@SortedElement carrier) elementList setList ->
-      SEList_haveSorts carrier elementList sortList.
+      list_in_ensemble_list elementList setList ->
+      SortedElementList_sorted elementList sortList.
 Proof.
-  intros.
-  generalize dependent setList.
-  generalize dependent sortList.
-  induction elementList.
-  - intros. destruct setList.  inversion H. constructor. inversion H0.
-  - intros. destruct setList,sortList. inversion H0. inversion H. inversion H.
-    apply sels_cons.
-    (* People say dependent destruction is ugly, because it uses some additional axiom. *)
-    dependent destruction H. dependent destruction H1.
-    split.
-    * unfold SEEnsemble_hasSort in H. apply H. assumption.
-    * apply (IHelementList sortList setList). assumption. assumption.
-Qed.      
+  intros. destruct H as [HsetListLen HsetListSorted].
+  destruct H0 as [HelemListLen HelemListSorted].
+  assert (HelemListLenEqSortListLen : length elementList = length sortList).
+  rewrite -> HelemListLen. assumption.
+  split. assumption.
+  induction sortList, setList, elementList; try exact I.
+  - admit.
+  - apply IHsetList. admit.
+Admitted.
+
+
+  unfold SortedElementList_sorted
+  (*
+  intros. induction elementList, setList.
+  - simpl in *. apply H.
+  - simpl in H0. inversion H0.
+  - simpl in H0. inversion H0.
+  - simpl in *. destruct sortList.
+    inversion H.
+    destruct H as [elementsSorted setListSorted].
+    destruct H0 as [a_in_e setList_in_elementList]. split.
+    apply elementsSorted. assumption.
+    *)
+
+  intros. (*unfold SortedElementList_sorted.*)
+
+  induction setList, sortList, elementList; simpl in *; try inversion H; try inversion H0; try exact I.
+  - apply H.
+  - destruct H as [elementsSorted setListSorted].
+    destruct H0 as [a_in_e setList_in_elementList].
+    split. apply elementsSorted. assumption.
+    destruct setList.
+    * clear H1 H2 H3 H4.
+    apply IHsetList.
+    * destruct setList.
+
+
+  Admitted.
+      
+                      
 
 Record Model : Type :=
   { carrier : forall (s : sort sigma), Set;
