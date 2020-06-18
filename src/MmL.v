@@ -141,11 +141,12 @@ Fixpoint zipWith {A B C : Type}(f: A -> B -> C)(xs : list A)(ys : list B) : list
   | cons x xs, cons y ys => cons (f x y) (zipWith f xs ys)
   end.
 
+Check fold_right.
 Definition SortedElementList_sorted { carrier : CarrierType }
          (elements : list (@SortedElement carrier))
          (sorts : list (sort sigma))
   := length elements = length sorts
-     /\ fold_left and (zipWith (fun e s => se_sort e = s) elements sorts) True.
+     /\ fold_right and True (zipWith (fun e s => se_sort e = s) elements sorts).
 
 Definition SortedElementEnsemble_hasSort
            { carrier : CarrierType }
@@ -161,11 +162,11 @@ Definition SortedElementEnsembleList_sorted { carrier : CarrierType }
          (elements : list (Ensemble (@SortedElement carrier)))
          (sorts : list (sort sigma)) : Prop
   := length elements = length sorts
-     /\ fold_left and (zipWith SortedElementEnsemble_hasSort elements sorts) True.
+     /\ fold_right and True (zipWith SortedElementEnsemble_hasSort elements sorts).
 
 Definition list_in_ensemble_list {a : Type}(elems : list a)(sets : list (Ensemble a)) : Prop :=
   length elems = length sets
-  /\ fold_left and (zipWith (Ensembles.In a) sets elems) True.
+  /\ fold_right and True (zipWith (Ensembles.In a) sets elems).
 
 Lemma ensemble_list_sorted_implies_list_sorted:
   forall
@@ -177,45 +178,32 @@ Lemma ensemble_list_sorted_implies_list_sorted:
       list_in_ensemble_list elementList setList ->
       SortedElementList_sorted elementList sortList.
 Proof.
-  intros. destruct H as [HsetListLen HsetListSorted].
-  destruct H0 as [HelemListLen HelemListSorted].
-  assert (HelemListLenEqSortListLen : length elementList = length sortList).
-  rewrite -> HelemListLen. assumption.
-  split. assumption.
-  induction sortList, setList, elementList; try exact I.
-  - admit.
-  - apply IHsetList. admit.
-Admitted.
-
-
-  unfold SortedElementList_sorted
-  (*
-  intros. induction elementList, setList.
-  - simpl in *. apply H.
-  - simpl in H0. inversion H0.
-  - simpl in H0. inversion H0.
-  - simpl in *. destruct sortList.
-    inversion H.
-    destruct H as [elementsSorted setListSorted].
-    destruct H0 as [a_in_e setList_in_elementList]. split.
-    apply elementsSorted. assumption.
-    *)
-
-  intros. (*unfold SortedElementList_sorted.*)
-
-  induction setList, sortList, elementList; simpl in *; try inversion H; try inversion H0; try exact I.
-  - apply H.
-  - destruct H as [elementsSorted setListSorted].
-    destruct H0 as [a_in_e setList_in_elementList].
-    split. apply elementsSorted. assumption.
-    destruct setList.
-    * clear H1 H2 H3 H4.
-    apply IHsetList.
-    * destruct setList.
-
-
-  Admitted.
-      
+  intros.
+  generalize dependent setList.
+  generalize dependent sortList.
+  induction elementList.
+  - intros. constructor. simpl. destruct H,H0. rewrite <- H. assumption.
+    simpl. destruct sortList. simpl. exact I. simpl. exact I.
+  - intros.
+    destruct H as [HsetListLen HsetListSorted].
+    destruct H0 as [HelListLen HelListInSetList].
+    assert (Hlen: length (a :: elementList) = length sortList).
+    rewrite <- HsetListLen. assumption.
+    split. apply Hlen.
+    simpl.
+    (* sortList and setList are not empty *)
+    destruct sortList. simpl. exact I.
+    destruct setList. simpl in HsetListLen. inversion HsetListLen.
+    (* simplify and clear *)
+    simpl in *. inversion HsetListLen. clear HsetListLen. rename H0 into HsetListLen.
+    destruct HsetListSorted as [He_hasSort_s HsetList_hasSort_sortList].
+    destruct HelListInSetList as [HaIne HelListInSetList].
+    split.
+    * unfold Ensembles.In in HaIne. unfold SortedElementEnsemble_hasSort in He_hasSort_s. auto.
+    * unfold SortedElementList_sorted in IHelementList.
+      apply (IHelementList sortList setList).
+      split. auto. auto. split. auto. auto.
+Qed.            
                       
 
 Record Model : Type :=
