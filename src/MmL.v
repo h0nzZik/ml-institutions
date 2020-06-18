@@ -133,16 +133,19 @@ Record SortedElement {carrier : CarrierType} :=
     se_element : carrier se_sort;
   }.
 
-Fixpoint SortedElementList_sorted { carrier : CarrierType }
+Fixpoint zipWith {A B C : Type}(f: A -> B -> C)(xs : list A)(ys : list B) : list C :=
+  match xs,ys with
+  | nil, nil => nil
+  | cons _ _, nil => nil
+  | nil, cons _ _ => nil
+  | cons x xs, cons y ys => cons (f x y) (zipWith f xs ys)
+  end.
+
+Definition SortedElementList_sorted { carrier : CarrierType }
          (elements : list (@SortedElement carrier))
          (sorts : list (sort sigma))
-  :=
-  match elements, sorts with
-  | nil, nil => True
-  | nil, cons _ _ => False
-  | cons _ _, nil => False
-  | cons e es, cons s ss => se_sort e = s /\ SortedElementList_sorted es ss
-  end.
+  := length elements = length sorts
+     /\ fold_left and (zipWith (fun e s => se_sort e = s) elements sorts) True.
 
 Definition SortedElementEnsemble_hasSort
            { carrier : CarrierType }
@@ -154,32 +157,15 @@ Definition SortedElementEnsemble_hasSort
       Ensembles.In (@SortedElement carrier) e x -> se_sort x = s
 .
 
-Fixpoint SortedElementEnsembleList_sorted { carrier : CarrierType }
+Definition SortedElementEnsembleList_sorted { carrier : CarrierType }
          (elements : list (Ensemble (@SortedElement carrier)))
          (sorts : list (sort sigma)) : Prop
-  :=
-  match elements, sorts with
-  | nil, nil => True
-  | nil, cons _ _ => False
-  | cons _ _, nil => False
-  | cons e es, cons s ss
-    => SortedElementEnsemble_hasSort e s
-       /\ SortedElementEnsembleList_sorted es ss
-  end.
+  := length elements = length sorts
+     /\ fold_left and (zipWith SortedElementEnsemble_hasSort elements sorts) True.
 
-(*
-Inductive list_in_ensemble_list (a : Type) : Prop :=
-| forall a:Type, list_in_ensemble_list a nil nil
-.*)
-
-Check map.
-Fixpoint list_in_ensemble_list {a : Type}(elems : list a)(sets : list (Ensemble a)) : Prop :=
-  match elems, sets with
-  | nil,nil => True
-  | nil, cons _ _ => False
-  | cons _ _, nil => False
-  | cons e es, cons s ss => Ensembles.In a s e /\ list_in_ensemble_list es ss
-  end.
+Definition list_in_ensemble_list {a : Type}(elems : list a)(sets : list (Ensemble a)) : Prop :=
+  length elems = length sets
+  /\ fold_left and (zipWith (Ensembles.In a) sets elems) True.
 
 Lemma ensemble_list_sorted_implies_list_sorted:
   forall
@@ -191,6 +177,18 @@ Lemma ensemble_list_sorted_implies_list_sorted:
       list_in_ensemble_list elementList setList ->
       SortedElementList_sorted elementList sortList.
 Proof.
+  intros. destruct H as [HsetListLen HsetListSorted].
+  destruct H0 as [HelemListLen HelemListSorted].
+  assert (HelemListLenEqSortListLen : length elementList = length sortList).
+  rewrite -> HelemListLen. assumption.
+  split. assumption.
+  induction sortList, setList, elementList; try exact I.
+  - admit.
+  - apply IHsetList. admit.
+Admitted.
+
+
+  unfold SortedElementList_sorted
   (*
   intros. induction elementList, setList.
   - simpl in *. apply H.
@@ -203,9 +201,9 @@ Proof.
     apply elementsSorted. assumption.
     *)
 
-  intros. unfold SortedElementList_sorted.
+  intros. (*unfold SortedElementList_sorted.*)
 
-  induction setList, sortList, elementList; simpl in *; try inversion H; try inversion H0.
+  induction setList, sortList, elementList; simpl in *; try inversion H; try inversion H0; try exact I.
   - apply H.
   - destruct H as [elementsSorted setListSorted].
     destruct H0 as [a_in_e setList_in_elementList].
