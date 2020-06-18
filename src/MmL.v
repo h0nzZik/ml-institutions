@@ -144,6 +144,16 @@ Fixpoint SortedElementList_sorted { carrier : CarrierType }
   | cons e es, cons s ss => se_sort e = s /\ SortedElementList_sorted es ss
   end.
 
+Definition SortedElementEnsemble_hasSort
+           { carrier : CarrierType }
+           (e : Ensemble (@SortedElement carrier))
+           (s : sort sigma)
+  : Prop
+  :=
+    forall x : @SortedElement carrier,
+      Ensembles.In (@SortedElement carrier) e x -> se_sort x = s
+.
+
 Fixpoint SortedElementEnsembleList_sorted { carrier : CarrierType }
          (elements : list (Ensemble (@SortedElement carrier)))
          (sorts : list (sort sigma)) : Prop
@@ -153,8 +163,7 @@ Fixpoint SortedElementEnsembleList_sorted { carrier : CarrierType }
   | nil, cons _ _ => False
   | cons _ _, nil => False
   | cons e es, cons s ss
-    => (forall x : @SortedElement carrier,
-           Ensembles.In (@SortedElement carrier) e x -> se_sort x = s)
+    => SortedElementEnsemble_hasSort e s
        /\ SortedElementEnsembleList_sorted es ss
   end.
 
@@ -163,6 +172,7 @@ Inductive list_in_ensemble_list (a : Type) : Prop :=
 | forall a:Type, list_in_ensemble_list a nil nil
 .*)
 
+Check map.
 Fixpoint list_in_ensemble_list {a : Type}(elems : list a)(sets : list (Ensemble a)) : Prop :=
   match elems, sets with
   | nil,nil => True
@@ -193,13 +203,15 @@ Proof.
     apply elementsSorted. assumption.
     *)
 
-  intros. induction setList, sortList, elementList; simpl in *; try inversion H; try inversion H0.
+  intros. unfold SortedElementList_sorted.
+
+  induction setList, sortList, elementList; simpl in *; try inversion H; try inversion H0.
   - apply H.
   - destruct H as [elementsSorted setListSorted].
     destruct H0 as [a_in_e setList_in_elementList].
     split. apply elementsSorted. assumption.
     destruct setList.
-    * 
+    * clear H1 H2 H3 H4.
     apply IHsetList.
     * destruct setList.
 
