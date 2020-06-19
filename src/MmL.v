@@ -220,7 +220,7 @@ Record Model : Type :=
         Ensemble (carrier s);
   }.
 
-Check SortedElementList_sorted.
+Check ensemble_list_sorted_implies_list_sorted.
 (* Pointwise extension of the interpretation *)
 Program Definition interpretation_ex {M : Model}
            (s : sort sigma)
@@ -234,5 +234,5 @@ Program Definition interpretation_ex {M : Model}
            (p : list_in_ensemble_list args' args),
     Ensembles.In (carrier M s) (interpretation M s ss sym args' _) m.
 Next Obligation.
-
+  
             
