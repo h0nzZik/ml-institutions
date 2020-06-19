@@ -60,7 +60,7 @@ Fixpoint well_sorted (phi : Pattern) : Prop :=
         | cons s ss', cons p ps' => sortOf p = s /\ f ss' ps'
         end
     ) sorts patterns
-  | Impl s p1 p2 => sortOf p1 = s /\ sortOf p2 = s
+  | Impl s p1 p2 => sortOf p1 = s /\ sortOf p2 = s (* TODO *)
   | Ex s _ _ p => sortOf p = s
   | Mu s _ _ p => sortOf p = s                               
   end.
@@ -125,6 +125,12 @@ Fixpoint noNegativeOccurenceOfMuBoundVariable (phi : Pattern) : Prop :=
 Definition well_formed (p : Pattern) : Prop :=
   well_sorted p /\ noNegativeOccurenceOfMuBoundVariable p
 .
+
+Record WFPattern : Type :=
+  { wfp_pattern : Pattern;
+    wfp_well_formed : well_formed wfp_pattern;
+  }.
+
 
 Definition CarrierType : Type := forall (s : sort sigma), Set.
 
@@ -207,32 +213,73 @@ Qed.
                       
 
 Record Model : Type :=
-  { carrier : forall (s : sort sigma), Set;
+  { mod_carrier : forall (s : sort sigma), Set;
     (* nonempty *)
-    carrier_el : forall (s : sort sigma), carrier s;
+    mod_carrier_el : forall (s : sort sigma), mod_carrier s;
 
-    interpretation :
+    mod_interpretation :
       forall (s : sort sigma)
              (ss : list (sort sigma))
              (sym : symbol sigma (ss, s))
-             (args : list (@SortedElement carrier)),
+             (args : list (@SortedElement mod_carrier)),
         SortedElementList_sorted args ss ->
-        Ensemble (carrier s);
+        Ensemble (mod_carrier s);
   }.
 
-Check ensemble_list_sorted_implies_list_sorted.
 (* Pointwise extension of the interpretation *)
 Program Definition interpretation_ex {M : Model}
            (s : sort sigma)
            (ss : list (sort sigma))
            (sym : symbol sigma (ss, s))
-           (args : list (Ensemble (@SortedElement (carrier M))))
+           (args : list (Ensemble (@SortedElement (mod_carrier M))))
            (sorted: SortedElementEnsembleList_sorted args ss)
-  : Ensemble (carrier M s) :=
+  : Ensemble (mod_carrier M s) :=
   fun m =>
-    exists (args' : list (@SortedElement (carrier M)))
+    exists (args' : list (@SortedElement (mod_carrier M)))
            (p : list_in_ensemble_list args' args),
-    Ensembles.In (carrier M s) (interpretation M s ss sym args' _) m.
+    Ensembles.In (mod_carrier M s) (mod_interpretation M s ss sym args' _) m.
 Next Obligation.
-  
-            
+  apply ensemble_list_sorted_implies_list_sorted with (setList := args).
+  assumption. assumption.
+Qed.
+
+Record Valuation {M : Model} : Type :=
+  {
+  val_evar : forall s : sort sigma, evar sigma s -> mod_carrier M s;
+  val_svar : forall s : sort sigma, svar sigma s -> Ensemble (mod_carrier M s);
+  }.
+
+Print Pattern.
+
+(* https://stackoverflow.com/a/52518299/6209703 *)
+Definition cast {T : Type} {T1 T2 : T} (H : T1 = T2) (f : T -> Type) (x : f T1) :=
+  eq_rect T1 (fun T3 : T => f T3) x T2 H.
+
+
+Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern) (wf : well_formed p)
+  : Ensemble (mod_carrier M (sortOf p)) :=
+  let carrier := mod_carrier M (sortOf p) in
+  fun m =>
+    match p with
+    | Bottom _ => False
+    | EVar s v => m = cast _ (mod_carrier M) (val_evar val s v)
+    | SVar s v => Ensembles.In carrier (val_svar val s v) m
+    | Sym s ss sym xs => False
+    | Impl s p1 p2 => not (Ensembles.In carrier (Valuation_ext val p1 _) m)
+                      \/ Ensembles.In carrier (Valuation_ext val p2 _) m
+    | _ => False
+    end.
+Next Obligation.
+  Print well_formed.
+  destruct ws as [ws1 ws2]. simpl in ws1.
+  simpl in ws.
+  unfold well_sorted in ws.
+  unfold well_sorted
+
+Next Obligation.
+  split. intros. discriminate.
+  intros. discriminate.
+  Qed.
+Next Obligation.  
+  admit.
+  Next Obligation.
