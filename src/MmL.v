@@ -249,13 +249,22 @@ Record Valuation {M : Model} : Type :=
   val_svar : forall s : sort sigma, svar sigma s -> Ensemble (mod_carrier M s);
   }.
 
-Print Pattern.
 
 (* https://stackoverflow.com/a/52518299/6209703 *)
 Definition cast {T : Type} {T1 T2 : T} (H : T1 = T2) (f : T -> Type) (x : f T1) :=
   eq_rect T1 (fun T3 : T => f T3) x T2 H.
 
-Check Singleton.
+Definition const {A B : Type} : A -> B -> A :=
+  fun x y => x.
+
+Program Definition toSortedElementEnsemble {carrier : CarrierType}
+           (s : sort sigma) (els : Ensemble (carrier s)) : Ensemble (@SortedElement carrier) :=
+  fun el =>
+    match sort_eq_dec sigma s (se_sort el) with
+    | left eq => els (cast _ carrier (se_element el))
+    | right _ => False
+    end.
+
 Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern) (ws : well_sorted p)
   : Ensemble (mod_carrier M (sortOf p)) :=
   let carrier := mod_carrier M (sortOf p) in
@@ -263,13 +272,19 @@ Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern) (w
   | Bottom _ => Empty_set carrier
   | EVar s v => Singleton carrier (val_evar val s v)
   | SVar s v => val_svar val s v
-  | Sym s ss sym xs => fun m => False
+  | Sym s ss sym xs =>
+    (* const (fun p => False) (map (fun p' => toSortedElementEnsemble (sortOf p') (Valuation_ext val p' _)) xs) *)
+    interpretation_ex
+      s ss sym
+      (map (fun p' => toSortedElementEnsemble (sortOf p') (Valuation_ext val p' _)) xs)
+      _
   | Impl s p1 p2 => Union carrier
                           (Complement carrier (Valuation_ext val p1 _))
                           (Valuation_ext val p2 _)
   | Ex s s' v p => fun m => False
   | Mu s s' v p => fun m => False
   end.
+Next Obligation.
 Next Obligation.
   destruct ws as [H1 [H2 [H3 H4]]]. assumption.
 Qed.
