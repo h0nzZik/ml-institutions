@@ -60,9 +60,9 @@ Fixpoint well_sorted (phi : Pattern) : Prop :=
         | cons s ss', cons p ps' => sortOf p = s /\ f ss' ps'
         end
     ) sorts patterns
-  | Impl s p1 p2 => sortOf p1 = s /\ sortOf p2 = s (* TODO *)
-  | Ex s _ _ p => sortOf p = s
-  | Mu s _ _ p => sortOf p = s                               
+  | Impl s p1 p2 => sortOf p1 = s /\ sortOf p2 = s /\ well_sorted p1 /\ well_sorted p2
+  | Ex s _ _ p => sortOf p = s /\ well_sorted p
+  | Mu s _ _ p => sortOf p = s /\ well_sorted p                               
   end.
 
 (* returns a pair (hasPositiveOccurence, hasNegativeOccurence) *)
@@ -255,31 +255,32 @@ Print Pattern.
 Definition cast {T : Type} {T1 T2 : T} (H : T1 = T2) (f : T -> Type) (x : f T1) :=
   eq_rect T1 (fun T3 : T => f T3) x T2 H.
 
-
-Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern) (wf : well_formed p)
+Check Singleton.
+Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern) (ws : well_sorted p)
   : Ensemble (mod_carrier M (sortOf p)) :=
   let carrier := mod_carrier M (sortOf p) in
-  fun m =>
-    match p with
-    | Bottom _ => False
-    | EVar s v => m = cast _ (mod_carrier M) (val_evar val s v)
-    | SVar s v => Ensembles.In carrier (val_svar val s v) m
-    | Sym s ss sym xs => False
-    | Impl s p1 p2 => not (Ensembles.In carrier (Valuation_ext val p1 _) m)
-                      \/ Ensembles.In carrier (Valuation_ext val p2 _) m
-    | _ => False
-    end.
+  match p with
+  | Bottom _ => Empty_set carrier
+  | EVar s v => Singleton carrier (val_evar val s v)
+  | SVar s v => val_svar val s v
+  | Sym s ss sym xs => fun m => False
+  | Impl s p1 p2 => Union carrier
+                          (Complement carrier (Valuation_ext val p1 _))
+                          (Valuation_ext val p2 _)
+  | Ex s s' v p => fun m => False
+  | Mu s s' v p => fun m => False
+  end.
 Next Obligation.
-  Print well_formed.
-  destruct ws as [ws1 ws2]. simpl in ws1.
-  simpl in ws.
-  unfold well_sorted in ws.
-  unfold well_sorted
-
+  destruct ws as [H1 [H2 [H3 H4]]]. assumption.
+Qed.
 Next Obligation.
-  split. intros. discriminate.
-  intros. discriminate.
-  Qed.
-Next Obligation.  
-  admit.
-  Next Obligation.
+  destruct ws as [H1 [H2 [H3 H4]]].
+  simpl. symmetry. assumption.
+Qed.
+Next Obligation.
+  destruct ws as [H1 [H2 [H3 H4]]]. assumption.
+Qed.
+Next Obligation.
+  simpl. destruct ws as [H1 [H2 [H3 H4]]].
+  symmetry. assumption.
+Qed.
