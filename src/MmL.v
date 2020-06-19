@@ -265,6 +265,15 @@ Program Definition toSortedElementEnsemble {carrier : CarrierType}
     | right _ => False
     end.
 
+Check SortedElementEnsemble_hasSort.
+Lemma toSortedElementEnsemble_sorted :
+  forall (carrier : CarrierType)(s : sort sigma)(els : Ensemble (carrier s)),
+    SortedElementEnsemble_hasSort (toSortedElementEnsemble s els) s.
+Proof.
+
+Admitted.
+
+
 Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern) (ws : well_sorted p)
   : Ensemble (mod_carrier M (sortOf p)) :=
   let carrier := mod_carrier M (sortOf p) in
