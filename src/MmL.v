@@ -74,59 +74,45 @@ Fixpoint well_sorted (phi : Pattern) : Prop :=
 end.
 
 (* returns a pair (hasPositiveOccurence, hasNegativeOccurence) *)
-Fixpoint SetVariableOccurences (phi : Pattern)(s : sort sigma)(v: svar sigma s) : Prop * Prop :=
+Fixpoint SetVariableOccurences (v : svar sigma) (phi : Pattern) : Prop * Prop :=
   match phi with
   | Bottom _ => (False, False)
-  | EVar _ _ => (False, False)
-  |  SVar s' v' =>
-     (
-       (match sort_eq_dec sigma s s' with
-          (* magic: https://stackoverflow.com/a/59189036/6209703 *)
-        | left e => (eq_rec _ (svar sigma) v _ e) = v'
-        | right _ => False
-        end
-       ), False)
-  | Sym _ _ _ patterns =>
-    ( fix f (ps : list Pattern) :=
-        match ps with
-        | nil => (False, False)
-        | cons p ps' => let (b1, b2) := SetVariableOccurences p s v in
-                        let (b3, b4) := f ps'
-                        in (b1 \/ b3, b2 \/ b4)
-        end             
-    ) patterns
-  | Impl _ p1 p2 =>
-    let (pos_p1, neg_p1) := SetVariableOccurences p1 s v in
-    let (pos_p2, neg_p2) := SetVariableOccurences p2 s v in
+  | EVar _ => (False, False)
+  | SVar v' => (v' = v, False)
+  | Sym _ patterns
+    => fold_right (fun (x y : Prop * Prop) =>
+                     let (a,b) := x in
+                     let (c,d) := y in
+                     ((a \/ c), (b \/ d)))
+                  (False, False)
+                  (map (SetVariableOccurences v) patterns)
+  | Impl p1 p2 =>
+    let (pos_p1, neg_p1) := SetVariableOccurences v p1 in
+    let (pos_p2, neg_p2) := SetVariableOccurences v p2 in
     (neg_p1 \/ pos_p2, pos_p1 \/ neg_p2)
-  | Ex _ _ _ p => SetVariableOccurences p s v
-  | Mu _ s' v' p =>
-    match sort_eq_dec sigma s s' with
-    | left e =>
-      let v_v'_equal := (eq_rec _ (svar sigma) v _ e) = v' in
-      let (pos, neg) := SetVariableOccurences p s v in
-      ( (not v_v'_equal) /\ pos, (not v_v'_equal) /\ neg)
-    | right _ => SetVariableOccurences p s v
-    end
+  | Ex _ p => SetVariableOccurences v p
+  | Mu v' p =>
+    let (pos, neg) := SetVariableOccurences v p in
+    (not (v = v') /\ pos, not (v = v') /\ neg)
   end.
 
-Definition hasNegativeOccurence (phi : Pattern) (s : sort sigma) (v : svar sigma s) : Prop :=
-  let (_, has_neg) := SetVariableOccurences phi s v in has_neg.
+Definition hasNegativeOccurence (phi : Pattern) (v : svar sigma) : Prop :=
+  let (_, has_neg) := SetVariableOccurences v phi in has_neg.
 
+Print Sym.
 Fixpoint noNegativeOccurenceOfMuBoundVariable (phi : Pattern) : Prop :=
   match phi with
   | Bottom _ => True
-  | EVar _ _ => True
-  | SVar _ _ => True
-  | Sym _ _ _ patterns
-    => fold_left (fun (b:Prop) (p:Pattern) => b /\ noNegativeOccurenceOfMuBoundVariable p)
-                 patterns True
-  | Impl _ p1 p2
+  | EVar _ => True
+  | SVar _ => True
+  | Sym _ patterns
+    => fold_right and True (map noNegativeOccurenceOfMuBoundVariable patterns)
+  | Impl p1 p2
     => noNegativeOccurenceOfMuBoundVariable p1
        /\ noNegativeOccurenceOfMuBoundVariable p2
-  | Ex _ _ _ p => noNegativeOccurenceOfMuBoundVariable p
-  | Mu _ s v p
-    => not (hasNegativeOccurence p s v)
+  | Ex _ p => noNegativeOccurenceOfMuBoundVariable p
+  | Mu v p
+    => not (hasNegativeOccurence p v)
        /\ noNegativeOccurenceOfMuBoundVariable p
   end.
 
