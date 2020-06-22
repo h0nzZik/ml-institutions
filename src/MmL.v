@@ -5,65 +5,73 @@ Require Import Coq.Lists.List.
 Record Signature : Type :=
   { sort: Set;
     sort_eq_dec: forall s1 s2 : sort, {s1 = s2} + {s1 <> s2};
-    evar : sort -> Set;
-    svar : sort -> Set;
-    symbol : list sort * sort -> Set;
+    evar : Set;
+    svar : Set;
+    symbol : Set;
+    sort_of_evar : evar -> sort;
+    sort_of_svar : svar -> sort;
+    sort_of_symbol : symbol -> list sort * sort;
 
-    evar_idx : forall s:sort, nat -> evar s;
-    svar_idx : forall s:sort, nat -> svar s;
-    evar_idx_inj: forall (s : sort) (x y : nat),
-        (evar_idx s x) = (evar_idx s y) -> x = y;
-    svar_idx_inj: forall (s : sort) (x y : nat),
-        (svar_idx s x) = (svar_idx s y) -> x = y;
+    evar_idx : sort -> nat -> evar;
+    svar_idx : sort -> nat -> svar;
+
+    evar_idx_sort : forall (s:sort) (n:nat),
+        sort_of_evar (evar_idx s n) = s;
+    svar_idx_sort : forall (s:sort) (n:nat),
+        sort_of_svar (svar_idx s n) = s;
+    
+    evar_idx_inj: forall (x y : nat) (s1 s2 : sort),
+        evar_idx s1 x = evar_idx s2 y -> s1 = s2 /\ x = y;
+    svar_idx_inj: forall (x y : nat) (s1 s2 : sort),
+        svar_idx s1 x = svar_idx s2 y -> s1 = s2 /\ x = y;
   }.
 
 Parameter sigma : Signature.
 
-(* The first parameter of all the constructor is the target sort of the pattern.
-   We do not have it as a parameter of the inductive type, because for the Sym constructor
-   we would need to somehow pass sorts to the types of arguments,
- *)
 Inductive Pattern : Type :=
-| Bottom : forall (s : sort sigma), Pattern
-| EVar : forall (s : sort sigma), evar sigma s -> Pattern
-| SVar : forall (s : sort sigma), svar sigma s -> Pattern
-| Sym : forall (s : sort sigma) (xs : list (sort sigma)), symbol sigma (xs, s)
-                                                          -> list Pattern -> Pattern
-| Impl : forall (s : sort sigma), Pattern -> Pattern -> Pattern
-| Ex : forall (s s': sort sigma), evar sigma s' -> Pattern -> Pattern
-| Mu : forall (s s': sort sigma), svar sigma s' -> Pattern -> Pattern
+| Bottom : sort sigma -> Pattern
+| EVar : evar sigma -> Pattern
+| SVar : svar sigma -> Pattern
+| Sym : symbol sigma -> list Pattern -> Pattern
+| Impl : Pattern -> Pattern -> Pattern
+| Ex : evar sigma -> Pattern -> Pattern
+| Mu : svar sigma -> Pattern -> Pattern
 .
 
-Definition sortOf (phi : Pattern) : sort sigma :=
-  match phi with
-  | Bottom s => s
-  | EVar s _ => s
-  | SVar s _ => s
-  | Sym s _ _ _ => s
-  | Impl s _ _ => s
-  | Ex s _ _ _ => s
-  | Mu s _ _ _ => s
+Fixpoint zipWith {A B C : Type}(f: A -> B -> C)(xs : list A)(ys : list B) : list C :=
+  match xs,ys with
+  | nil, nil => nil
+  | cons _ _, nil => nil
+  | nil, cons _ _ => nil
+  | cons x xs, cons y ys => cons (f x y) (zipWith f xs ys)
   end.
 
+
+Fixpoint sortOf (phi : Pattern) : sort sigma :=
+  match phi with
+  | Bottom s => s
+  | EVar v => sort_of_evar sigma v
+  | SVar v => sort_of_svar sigma v
+  | Sym sym _ => let (_, s) := sort_of_symbol sigma sym in s
+  | Impl l r => sortOf r
+  | Ex _ p => sortOf p
+  | Mu _ p => sortOf p
+  end.
 
 Fixpoint well_sorted (phi : Pattern) : Prop :=
   match phi with
   | Bottom _ => True
-  | EVar _ _ => True
-  | SVar _ _ => True
-  | Sym s sorts sym patterns =>
-    ( fix f (ss : list (sort sigma)) (ps : list Pattern) :=
-        match ss,ps with
-        | nil,nil => True
-        | nil, cons _ _ => False
-        | cons _ _, nil => False
-        | cons s ss', cons p ps' => sortOf p = s /\ f ss' ps'
-        end
-    ) sorts patterns
-  | Impl s p1 p2 => sortOf p1 = s /\ sortOf p2 = s /\ well_sorted p1 /\ well_sorted p2
-  | Ex s _ _ p => sortOf p = s /\ well_sorted p
-  | Mu s _ _ p => sortOf p = s /\ well_sorted p                               
-  end.
+  | EVar v => True
+  | SVar v => True
+  | Sym sym patterns =>
+    let (sorts, _) := sort_of_symbol sigma sym in
+    length patterns = length sorts
+    /\ fold_right and True (map well_sorted patterns)
+    /\ fold_right and True (zipWith (fun p s => sortOf p = s) patterns sorts)
+  | Impl p1 p2 => sortOf p1 = sortOf p2 /\ well_sorted p1 /\ well_sorted p2
+  | Ex _ p => well_sorted p
+  | Mu _ p => well_sorted p
+end.
 
 (* returns a pair (hasPositiveOccurence, hasNegativeOccurence) *)
 Fixpoint SetVariableOccurences (phi : Pattern)(s : sort sigma)(v: svar sigma s) : Prop * Prop :=
@@ -139,15 +147,6 @@ Record SortedElement {carrier : CarrierType} :=
     se_element : carrier se_sort;
   }.
 
-Fixpoint zipWith {A B C : Type}(f: A -> B -> C)(xs : list A)(ys : list B) : list C :=
-  match xs,ys with
-  | nil, nil => nil
-  | cons _ _, nil => nil
-  | nil, cons _ _ => nil
-  | cons x xs, cons y ys => cons (f x y) (zipWith f xs ys)
-  end.
-
-Check fold_right.
 Definition SortedElementList_sorted { carrier : CarrierType }
          (elements : list (@SortedElement carrier))
          (sorts : list (sort sigma))
