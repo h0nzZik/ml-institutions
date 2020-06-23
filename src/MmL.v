@@ -249,11 +249,25 @@ Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   | Sym sym xs =>
     interpretation_ex sym (map (Valuation_ext val) xs)
   | Impl p1 p2 => Union carrier
-                          (Complement carrier (Valuation_ext val p1))
+                          (Complement carrier (Valuation_ext val p1)) (* WRONG *)
                           (Valuation_ext val p2)
   | Ex v p => fun m => False
   | Mu v p => fun m => False
   end.
-Qed.
-
+Print Model.
 (* TODO: lemma: If a pattern is well-sorted, then valuation_ext has the same sort as the pattern *)
+Lemma Valuation_ext_sorted :
+  forall (M : Model) (val : @Valuation M) (p : Pattern),
+    mod_set_have_sort M (sortOf p) (Valuation_ext val p).
+Proof.
+  intros M val p.
+  generalize dependent val.
+  induction p.
+  - (* Bottom *) admit.
+  - (* EVar *) admit.
+  - (* SVar *) admit.
+  - (* Sym *) admit.
+  - (* Impl *) admit.
+  - (* Ex *) admit.
+  - (* Mu *) admit.
+Admitted.
