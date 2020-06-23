@@ -28,6 +28,12 @@ Record Signature : Type :=
 
 Parameter sigma : Signature.
 
+Definition sorts_of_symbol_args (sym : symbol sigma) : list (sort sigma) :=
+  fst (sort_of_symbol sigma sym).
+
+Definition sort_of_symbol_result (sym : symbol sigma) : sort sigma :=
+  snd (sort_of_symbol sigma sym).
+
 Inductive Pattern : Type :=
 | Bottom : sort sigma -> Pattern
 | EVar : evar sigma -> Pattern
@@ -125,108 +131,101 @@ Record WFPattern : Type :=
     wfp_well_formed : well_formed wfp_pattern;
   }.
 
+Record Model : Type :=
+  { mod_carrier : Set;
+    mod_el_sort : mod_carrier -> sort sigma;
 
-Definition CarrierType : Type := forall (s : sort sigma), Set.
+    (* helper functions *)
+    mod_el_have_sort (s : sort sigma) (x : mod_carrier) : Prop :=
+      mod_el_sort x = s;
+    
+    mod_set_have_sort (s : sort sigma) (e : Ensemble mod_carrier) : Prop :=
+      forall x : mod_carrier,
+        Ensembles.In mod_carrier e x -> mod_el_have_sort s x;
+    
+    mod_els_have_sorts (ss : list (sort sigma)) (xs : list mod_carrier) : Prop :=
+      fold_right and True (zipWith mod_el_have_sort ss xs);
+      
+    mod_carrier_nonempty : forall (s : sort sigma), exists (x : mod_carrier), mod_el_have_sort s x;
 
-Record SortedElement {carrier : CarrierType} :=
-  { se_sort : sort sigma;
-    se_element : carrier se_sort;
+    mod_interpretation : symbol sigma -> list mod_carrier -> Ensemble (mod_carrier);
+
+    mod_interpretation_sorted :
+      forall (sym : symbol sigma)
+             (args : list mod_carrier),
+        mod_els_have_sorts (sorts_of_symbol_args sym) args
+        -> mod_set_have_sort (sort_of_symbol_result sym) (mod_interpretation sym args);
+
+    mod_interpretation_ill :
+      forall (sym : symbol sigma)
+             (args : list mod_carrier),
+        ~mod_els_have_sorts (sorts_of_symbol_args sym) args
+        -> mod_interpretation sym args = Empty_set mod_carrier;
   }.
 
-Definition SortedElementList_sorted { carrier : CarrierType }
-         (elements : list (@SortedElement carrier))
-         (sorts : list (sort sigma))
-  := length elements = length sorts
-     /\ fold_right and True (zipWith (fun e s => se_sort e = s) elements sorts).
-
-Definition SortedElementEnsemble_hasSort
-           { carrier : CarrierType }
-           (e : Ensemble (@SortedElement carrier))
-           (s : sort sigma)
-  : Prop
-  :=
-    forall x : @SortedElement carrier,
-      Ensembles.In (@SortedElement carrier) e x -> se_sort x = s
+Definition sets_have_sorts
+           {M : Model}
+           (ss : list (sort sigma))
+           (es : list (Ensemble (mod_carrier M)))
+  : Prop := 
+  length ss = length es /\ fold_right and True (zipWith (mod_set_have_sort M) ss es)
 .
 
-Definition SortedElementEnsembleList_sorted { carrier : CarrierType }
-         (elements : list (Ensemble (@SortedElement carrier)))
-         (sorts : list (sort sigma)) : Prop
-  := length elements = length sorts
-     /\ fold_right and True (zipWith SortedElementEnsemble_hasSort elements sorts).
-
-Definition list_in_ensemble_list {a : Type}(elems : list a)(sets : list (Ensemble a)) : Prop :=
+Definition list_in_ensemble_list {a : Type}(sets : list (Ensemble a))(elems : list a) : Prop :=
   length elems = length sets
   /\ fold_right and True (zipWith (Ensembles.In a) sets elems).
 
-Lemma ensemble_list_sorted_implies_list_sorted:
-  forall
-      { carrier : CarrierType }
-      ( setList : list (Ensemble (@SortedElement carrier)))
-      ( sortList : list (sort sigma)),
-    (SortedElementEnsembleList_sorted setList sortList) ->
-    forall ( elementList : list (@SortedElement carrier)),
-      list_in_ensemble_list elementList setList ->
-      SortedElementList_sorted elementList sortList.
+Lemma list_in_ensemble_list_sorted :
+  forall (M : Model)
+         (ss : list (sort sigma))
+         (es : list (Ensemble (mod_carrier M)))
+         (xs : list (mod_carrier M)),
+    sets_have_sorts ss es ->
+    list_in_ensemble_list es xs ->
+    mod_els_have_sorts M ss xs.
 Proof.
-  intros.
-  generalize dependent setList.
-  generalize dependent sortList.
-  induction elementList.
-  - intros. constructor. simpl. destruct H,H0. rewrite <- H. assumption.
-    simpl. destruct sortList. simpl. exact I. simpl. exact I.
-  - intros.
-    destruct H as [HsetListLen HsetListSorted].
-    destruct H0 as [HelListLen HelListInSetList].
-    assert (Hlen: length (a :: elementList) = length sortList).
-    rewrite <- HsetListLen. assumption.
-    split. apply Hlen.
-    simpl.
-    (* sortList and setList are not empty *)
-    destruct sortList. simpl. exact I.
-    destruct setList. simpl in HsetListLen. inversion HsetListLen.
-    (* simplify and clear *)
-    simpl in *. inversion HsetListLen. clear HsetListLen. rename H0 into HsetListLen.
-    destruct HsetListSorted as [He_hasSort_s HsetList_hasSort_sortList].
-    destruct HelListInSetList as [HaIne HelListInSetList].
-    split.
-    * unfold Ensembles.In in HaIne. unfold SortedElementEnsemble_hasSort in He_hasSort_s. auto.
-    * unfold SortedElementList_sorted in IHelementList.
-      apply (IHelementList sortList setList).
-      split. auto. auto. split. auto. auto.
-Qed.            
-                      
-
-Record Model : Type :=
-  { mod_carrier : forall (s : sort sigma), Set;
-    (* nonempty *)
-    mod_carrier_el : forall (s : sort sigma), mod_carrier s;
-
-    mod_interpretation :
-      forall (s : sort sigma)
-             (ss : list (sort sigma))
-             (sym : symbol sigma (ss, s))
-             (args : list (@SortedElement mod_carrier)),
-        SortedElementList_sorted args ss ->
-        Ensemble (mod_carrier s);
-  }.
+  induction ss; intros; unfold mod_els_have_sorts; destruct xs; simpl; try exact I.
+  (* `es` cannot be `nil` *)
+  destruct es; inversion H; try inversion H1.
+  split.
+  - unfold mod_el_have_sort.
+    destruct H,H0. simpl in *. destruct H2.
+    unfold mod_set_have_sort in H2. firstorder. 
+  - unfold mod_els_have_sorts in IHss. apply (IHss es). inversion H0.
+    unfold sets_have_sorts. split. assumption. simpl in H2. destruct H2. assumption.
+    inversion H0. unfold list_in_ensemble_list. split. simpl in H3. inversion H3. reflexivity.
+    simpl in H5. destruct H5. assumption.
+Qed.    
 
 (* Pointwise extension of the interpretation *)
-Program Definition interpretation_ex {M : Model}
-           (s : sort sigma)
-           (ss : list (sort sigma))
-           (sym : symbol sigma (ss, s))
-           (args : list (Ensemble (@SortedElement (mod_carrier M))))
-           (sorted: SortedElementEnsembleList_sorted args ss)
-  : Ensemble (mod_carrier M s) :=
+Definition interpretation_ex
+        {M : Model}
+        (sym : symbol sigma)        
+        (args : list (Ensemble (mod_carrier M)))
+  : Ensemble (mod_carrier M) :=
   fun m =>
-    exists (args' : list (@SortedElement (mod_carrier M)))
-           (p : list_in_ensemble_list args' args),
-    Ensembles.In (mod_carrier M s) (mod_interpretation M s ss sym args' _) m.
-Next Obligation.
-  apply ensemble_list_sorted_implies_list_sorted with (setList := args).
-  assumption. assumption.
-Qed.
+    exists (args' : list (mod_carrier M)),
+    list_in_ensemble_list args args' /\ 
+    Ensembles.In (mod_carrier M) (mod_interpretation M sym args') m
+.
+Print sets_have_sorts.
+Check mod_interpretation.
+Lemma interpretation_ex_sorted :
+  forall (M : Model)(sym : symbol sigma)(args : list (Ensemble (mod_carrier M))),
+    sets_have_sorts (sorts_of_symbol_args sym) args ->
+    mod_set_have_sort M (sort_of_symbol_result sym) (interpretation_ex sym args).
+Proof.
+  
+  intros. unfold mod_set_have_sort.
+  intros. unfold mod_el_have_sort.
+  unfold Ensembles.In in H0. unfold interpretation_ex in H0.
+  destruct H0 as [args' [H1 H2]].
+  unfold Ensembles.In in H2.
+  Check mod_interpretation_sorted.
+  remember (mod_interpretation_sorted M sym args').
+  
+  unfold mod_set_have_sort in m.
+  
 
 Record Valuation {M : Model} : Type :=
   {
