@@ -208,87 +208,52 @@ Definition interpretation_ex
     list_in_ensemble_list args args' /\ 
     Ensembles.In (mod_carrier M) (mod_interpretation M sym args') m
 .
-Print sets_have_sorts.
-Check mod_interpretation.
+
 Lemma interpretation_ex_sorted :
   forall (M : Model)(sym : symbol sigma)(args : list (Ensemble (mod_carrier M))),
     sets_have_sorts (sorts_of_symbol_args sym) args ->
     mod_set_have_sort M (sort_of_symbol_result sym) (interpretation_ex sym args).
 Proof.
-  
   intros. unfold mod_set_have_sort.
   intros. unfold mod_el_have_sort.
   unfold Ensembles.In in H0. unfold interpretation_ex in H0.
   destruct H0 as [args' [H1 H2]].
-  unfold Ensembles.In in H2.
-  Check mod_interpretation_sorted.
-  remember (mod_interpretation_sorted M sym args').
-  
-  unfold mod_set_have_sort in m.
-  
+  remember (list_in_ensemble_list_sorted M (sorts_of_symbol_args sym) args args' H H1) as args'_sorts.
+  clear Heqargs'_sorts.
+  remember (mod_interpretation_sorted M sym args' args'_sorts) as interp_sorts.
+  clear Heqinterp_sorts.
+  unfold mod_set_have_sort in interp_sorts.
+  remember (interp_sorts x H2) as x_sort.
+  clear Heqx_sort.
+  unfold mod_el_have_sort in x_sort. assumption.
+Qed.
 
 Record Valuation {M : Model} : Type :=
   {
-  val_evar : forall s : sort sigma, evar sigma s -> mod_carrier M s;
-  val_svar : forall s : sort sigma, svar sigma s -> Ensemble (mod_carrier M s);
+  val_evar : evar sigma -> mod_carrier M;
+  val_svar : svar sigma -> Ensemble (mod_carrier M);
+
+  val_evar_sorted :
+    forall v : evar sigma, mod_el_have_sort M (sort_of_evar sigma v) (val_evar v);
+  val_svar_sorted :
+    forall v : svar sigma, mod_set_have_sort M (sort_of_svar sigma v) (val_svar v);
   }.
 
-
-(* https://stackoverflow.com/a/52518299/6209703 *)
-Definition cast {T : Type} {T1 T2 : T} (H : T1 = T2) (f : T -> Type) (x : f T1) :=
-  eq_rect T1 (fun T3 : T => f T3) x T2 H.
-
-Definition const {A B : Type} : A -> B -> A :=
-  fun x y => x.
-
-Program Definition toSortedElementEnsemble {carrier : CarrierType}
-           (s : sort sigma) (els : Ensemble (carrier s)) : Ensemble (@SortedElement carrier) :=
-  fun el =>
-    match sort_eq_dec sigma s (se_sort el) with
-    | left eq => els (cast _ carrier (se_element el))
-    | right _ => False
-    end.
-
-Check SortedElementEnsemble_hasSort.
-Lemma toSortedElementEnsemble_sorted :
-  forall (carrier : CarrierType)(s : sort sigma)(els : Ensemble (carrier s)),
-    SortedElementEnsemble_hasSort (toSortedElementEnsemble s els) s.
-Proof.
-
-Admitted.
-
-
-Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern) (ws : well_sorted p)
-  : Ensemble (mod_carrier M (sortOf p)) :=
-  let carrier := mod_carrier M (sortOf p) in
+Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
+  : Ensemble (mod_carrier M) :=
+  let carrier := mod_carrier M  in
   match p with
   | Bottom _ => Empty_set carrier
-  | EVar s v => Singleton carrier (val_evar val s v)
-  | SVar s v => val_svar val s v
-  | Sym s ss sym xs =>
-    (* const (fun p => False) (map (fun p' => toSortedElementEnsemble (sortOf p') (Valuation_ext val p' _)) xs) *)
-    interpretation_ex
-      s ss sym
-      (map (fun p' => toSortedElementEnsemble (sortOf p') (Valuation_ext val p' _)) xs)
-      _
-  | Impl s p1 p2 => Union carrier
-                          (Complement carrier (Valuation_ext val p1 _))
-                          (Valuation_ext val p2 _)
-  | Ex s s' v p => fun m => False
-  | Mu s s' v p => fun m => False
+  | EVar v => Singleton carrier (val_evar val v)
+  | SVar v => val_svar val v
+  | Sym sym xs =>
+    interpretation_ex sym (map (Valuation_ext val) xs)
+  | Impl p1 p2 => Union carrier
+                          (Complement carrier (Valuation_ext val p1))
+                          (Valuation_ext val p2)
+  | Ex v p => fun m => False
+  | Mu v p => fun m => False
   end.
-Next Obligation.
-Next Obligation.
-  destruct ws as [H1 [H2 [H3 H4]]]. assumption.
 Qed.
-Next Obligation.
-  destruct ws as [H1 [H2 [H3 H4]]].
-  simpl. symmetry. assumption.
-Qed.
-Next Obligation.
-  destruct ws as [H1 [H2 [H3 H4]]]. assumption.
-Qed.
-Next Obligation.
-  simpl. destruct ws as [H1 [H2 [H3 H4]]].
-  symmetry. assumption.
-Qed.
+
+(* TODO: lemma: If a pattern is well-sorted, then valuation_ext has the same sort as the pattern *)
