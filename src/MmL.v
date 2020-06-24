@@ -44,6 +44,9 @@ Inductive Pattern : Type :=
 | Mu : svar sigma -> Pattern -> Pattern
 .
 
+(* TODO need better induction *)
+Check Pattern_ind.
+
 Fixpoint zipWith {A B C : Type}(f: A -> B -> C)(xs : list A)(ys : list B) : list C :=
   match xs,ys with
   | nil, nil => nil
@@ -71,10 +74,9 @@ Fixpoint well_sorted (phi : Pattern) : Prop :=
   | And p1 p2 => sortOf p1 = sortOf p2 /\ well_sorted p1 /\ well_sorted p2
   | Neg p => well_sorted p
   | Sym sym patterns =>
-    let (sorts, _) := sort_of_symbol sigma sym in
-    length patterns = length sorts
+    length patterns = length (sorts_of_symbol_args sym)
     /\ fold_right and True (map well_sorted patterns)
-    /\ fold_right and True (zipWith (fun p s => sortOf p = s) patterns sorts)
+    /\ fold_right and True (zipWith (fun p s => sortOf p = s) patterns (sorts_of_symbol_args sym))
   | Ex _ p => well_sorted p
   | Mu _ p => well_sorted p
 end.
@@ -260,19 +262,61 @@ Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   | Mu v p => fun m => False
   end.
 
+Check val_evar_sorted.
 (* TODO: lemma: If a pattern is well-sorted, then valuation_ext has the same sort as the pattern *)
 Lemma Valuation_ext_sorted :
   forall (M : Model) (val : @Valuation M) (p : Pattern),
+    well_sorted p ->
     mod_set_have_sort M (sortOf p) (Valuation_ext val p).
 Proof.
   intros M val p.
   generalize dependent val.
   induction p.
-  - (* EVar *) admit.
-  - (* SVar *) admit.
-  - (* And *) admit.
-  - (* Neg *) admit.
-  - (* Sym *) admit.
+  - (* EVar *)
+    intros. simpl in *.
+    unfold mod_set_have_sort.
+    intros.
+    unfold mod_el_have_sort.
+    inversion H0.
+    apply val_evar_sorted.
+  - (* SVar *)
+    intros.
+    simpl.
+    apply val_svar_sorted.
+  - (* And *)
+    intros.
+    simpl.
+    simpl in H.
+    unfold mod_set_have_sort in *.
+    intros.
+    inversion H0.
+    apply IHp1 in H1.
+    assumption.
+    destruct H as [Hsortp2 [Hwsp1 Hwsp2]].
+    assumption.
+  - (* Neg *)
+    intros.
+    simpl.
+    unfold mod_set_have_sort.
+    intros.
+    unfold Ensembles.In in H0.
+    inversion H0.
+    unfold Ensembles.In in H1.
+    inversion H1.
+    rewrite -> H4.
+    assumption.
+  - (* Sym *)
+    intros.
+    simpl.
+    apply interpretation_ex_sorted.
+    Print sets_have_sorts.
+    destruct H as [Hlen [Hws Hmatch]].
+    unfold sets_have_sorts.
+    split. rewrite -> map_length. symmetry. assumption.
+    
+    induction l.
+      
+    admit.
   - (* Ex *) admit.
   - (* Mu *) admit.
 Admitted.
