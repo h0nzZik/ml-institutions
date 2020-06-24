@@ -43,6 +43,41 @@ Inductive Pattern : Type :=
 | Ex : evar sigma -> Pattern -> Pattern
 | Mu : svar sigma -> Pattern -> Pattern
 .
+Check List.Forall.
+(* A custom induction principle.
+   https://stackoverflow.com/q/47097928/6209703
+ *)
+Section Pattern_nested_ind.
+  Variable P : Pattern -> Prop.
+  Hypothesis EVar_case : forall (v : evar sigma), P (EVar v).
+  Hypothesis SVar_case : forall (v : svar sigma), P (SVar v).
+  Hypothesis And_case : forall (p1 p2 : Pattern), P p1 -> P p2 -> P (And p1 p2).
+  Hypothesis Neg_case : forall (p : Pattern), P p -> P (Neg p).
+  Hypothesis Sym_case : forall (sym : symbol sigma)(args : list Pattern),
+      List.Forall P args -> P (Sym sym args).
+  Hypothesis Ex_case : forall (v : evar sigma)(p : Pattern), P p -> P (Ex v p).
+  Hypothesis Mu_case : forall (v : svar sigma)(p : Pattern), P p -> P (Mu v p).
+
+  Print Forall.
+  Fixpoint Pattern_nested_ind (p : Pattern) : P p :=
+    match p with
+    | EVar v => EVar_case v
+    | SVar v => SVar_case v
+    | And p1 p2 => And_case p1 p2 (Pattern_nested_ind p1) (Pattern_nested_ind p2)
+    | Neg p' => Neg_case p' (Pattern_nested_ind p')
+    | Sym sym args =>
+      let H := (fix f (xs : list Pattern) : Forall P xs :=
+                  match xs with
+                  | nil => Forall_nil _
+                  | cons x xs => Forall_cons _ (Pattern_nested_ind x) (f xs)
+                  end
+               ) args in
+      Sym_case sym args H
+    | Ex v p' => Ex_case v p' (Pattern_nested_ind p')
+    | Mu v p' => Mu_case v p' (Pattern_nested_ind p')
+    end.
+End Pattern_nested_ind.
+
 
 (* TODO need better induction *)
 Check Pattern_ind.
@@ -271,7 +306,7 @@ Lemma Valuation_ext_sorted :
 Proof.
   intros M val p.
   generalize dependent val.
-  induction p.
+  induction p using Pattern_nested_ind.
   - (* EVar *)
     intros. simpl in *.
     unfold mod_set_have_sort.
@@ -309,12 +344,7 @@ Proof.
     intros.
     simpl.
     apply interpretation_ex_sorted.
-    Print sets_have_sorts.
-    destruct H as [Hlen [Hws Hmatch]].
-    unfold sets_have_sorts.
-    split. rewrite -> map_length. symmetry. assumption.
     
-    induction l.
       
     admit.
   - (* Ex *) admit.
