@@ -35,11 +35,11 @@ Definition sort_of_symbol_result (sym : symbol sigma) : sort sigma :=
   snd (sort_of_symbol sigma sym).
 
 Inductive Pattern : Type :=
-| Bottom : sort sigma -> Pattern
 | EVar : evar sigma -> Pattern
 | SVar : svar sigma -> Pattern
+| And : Pattern -> Pattern -> Pattern
+| Neg : Pattern -> Pattern                                
 | Sym : symbol sigma -> list Pattern -> Pattern
-| Impl : Pattern -> Pattern -> Pattern
 | Ex : evar sigma -> Pattern -> Pattern
 | Mu : svar sigma -> Pattern -> Pattern
 .
@@ -55,26 +55,26 @@ Fixpoint zipWith {A B C : Type}(f: A -> B -> C)(xs : list A)(ys : list B) : list
 
 Fixpoint sortOf (phi : Pattern) : sort sigma :=
   match phi with
-  | Bottom s => s
   | EVar v => sort_of_evar sigma v
   | SVar v => sort_of_svar sigma v
-  | Sym sym _ => let (_, s) := sort_of_symbol sigma sym in s
-  | Impl l r => sortOf r
+  | And l r => sortOf l
+  | Neg p => sortOf p
+  | Sym sym _ => sort_of_symbol_result sym
   | Ex _ p => sortOf p
   | Mu _ p => sortOf p
   end.
 
 Fixpoint well_sorted (phi : Pattern) : Prop :=
   match phi with
-  | Bottom _ => True
   | EVar v => True
   | SVar v => True
+  | And p1 p2 => sortOf p1 = sortOf p2 /\ well_sorted p1 /\ well_sorted p2
+  | Neg p => well_sorted p
   | Sym sym patterns =>
     let (sorts, _) := sort_of_symbol sigma sym in
     length patterns = length sorts
     /\ fold_right and True (map well_sorted patterns)
     /\ fold_right and True (zipWith (fun p s => sortOf p = s) patterns sorts)
-  | Impl p1 p2 => sortOf p1 = sortOf p2 /\ well_sorted p1 /\ well_sorted p2
   | Ex _ p => well_sorted p
   | Mu _ p => well_sorted p
 end.
@@ -82,9 +82,15 @@ end.
 (* returns a pair (hasPositiveOccurence, hasNegativeOccurence) *)
 Fixpoint SetVariableOccurences (v : svar sigma) (phi : Pattern) : Prop * Prop :=
   match phi with
-  | Bottom _ => (False, False)
   | EVar _ => (False, False)
   | SVar v' => (v' = v, False)
+  | And p1 p2 =>
+    let (pos_p1, neg_p1) := SetVariableOccurences v p1 in
+    let (pos_p2, neg_p2) := SetVariableOccurences v p2 in
+    (pos_p1 \/ pos_p2, neg_p1 \/ neg_p2)
+  | Neg p =>
+    let (pos, neg) := SetVariableOccurences v p in
+    (neg, pos)
   | Sym _ patterns
     => fold_right (fun (x y : Prop * Prop) =>
                      let (a,b) := x in
@@ -92,10 +98,6 @@ Fixpoint SetVariableOccurences (v : svar sigma) (phi : Pattern) : Prop * Prop :=
                      ((a \/ c), (b \/ d)))
                   (False, False)
                   (map (SetVariableOccurences v) patterns)
-  | Impl p1 p2 =>
-    let (pos_p1, neg_p1) := SetVariableOccurences v p1 in
-    let (pos_p2, neg_p2) := SetVariableOccurences v p2 in
-    (neg_p1 \/ pos_p2, pos_p1 \/ neg_p2)
   | Ex _ p => SetVariableOccurences v p
   | Mu v' p =>
     let (pos, neg) := SetVariableOccurences v p in
@@ -108,14 +110,14 @@ Definition hasNegativeOccurence (phi : Pattern) (v : svar sigma) : Prop :=
 Print Sym.
 Fixpoint noNegativeOccurenceOfMuBoundVariable (phi : Pattern) : Prop :=
   match phi with
-  | Bottom _ => True
   | EVar _ => True
   | SVar _ => True
+  | And p1 p2 =>
+    noNegativeOccurenceOfMuBoundVariable p1
+    /\ noNegativeOccurenceOfMuBoundVariable p2
+  | Neg p => noNegativeOccurenceOfMuBoundVariable p
   | Sym _ patterns
     => fold_right and True (map noNegativeOccurenceOfMuBoundVariable patterns)
-  | Impl p1 p2
-    => noNegativeOccurenceOfMuBoundVariable p1
-       /\ noNegativeOccurenceOfMuBoundVariable p2
   | Ex _ p => noNegativeOccurenceOfMuBoundVariable p
   | Mu v p
     => not (hasNegativeOccurence p v)
@@ -162,6 +164,10 @@ Record Model : Type :=
         ~mod_els_have_sorts (sorts_of_symbol_args sym) args
         -> mod_interpretation sym args = Empty_set mod_carrier;
   }.
+
+Definition sort_carrier (M : Model) (s : sort sigma) : Ensemble (mod_carrier M) :=
+  fun m =>
+    mod_el_have_sort M s m.
 
 Definition sets_have_sorts
            {M : Model}
@@ -243,18 +249,17 @@ Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   : Ensemble (mod_carrier M) :=
   let carrier := mod_carrier M  in
   match p with
-  | Bottom _ => Empty_set carrier
   | EVar v => Singleton carrier (val_evar val v)
   | SVar v => val_svar val v
+  | And p1 p2 =>
+    Intersection carrier (Valuation_ext val p1) (Valuation_ext val p2)
+  | Neg p' => Setminus carrier (sort_carrier M (sortOf p')) (Valuation_ext val p')
   | Sym sym xs =>
     interpretation_ex sym (map (Valuation_ext val) xs)
-  | Impl p1 p2 => Union carrier
-                          (Complement carrier (Valuation_ext val p1)) (* WRONG *)
-                          (Valuation_ext val p2)
   | Ex v p => fun m => False
   | Mu v p => fun m => False
   end.
-Print Model.
+
 (* TODO: lemma: If a pattern is well-sorted, then valuation_ext has the same sort as the pattern *)
 Lemma Valuation_ext_sorted :
   forall (M : Model) (val : @Valuation M) (p : Pattern),
@@ -263,11 +268,11 @@ Proof.
   intros M val p.
   generalize dependent val.
   induction p.
-  - (* Bottom *) admit.
   - (* EVar *) admit.
   - (* SVar *) admit.
+  - (* And *) admit.
+  - (* Neg *) admit.
   - (* Sym *) admit.
-  - (* Impl *) admit.
   - (* Ex *) admit.
   - (* Mu *) admit.
 Admitted.
