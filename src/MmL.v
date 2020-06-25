@@ -102,6 +102,12 @@ Fixpoint sortOf (phi : Pattern) : sort sigma :=
   | Mu _ p => sortOf p
   end.
 
+Definition Pattern_has_sort (s : sort sigma) (phi : Pattern) : Prop :=
+  sortOf phi = s.
+
+Definition Patterns_have_sorts (ss : list (sort sigma)) (ps : list Pattern) : Prop :=
+  length ss = length ps /\ fold_right and True (zipWith Pattern_has_sort ss ps).
+
 Fixpoint well_sorted (phi : Pattern) : Prop :=
   match phi with
   | EVar v => True
@@ -109,9 +115,8 @@ Fixpoint well_sorted (phi : Pattern) : Prop :=
   | And p1 p2 => sortOf p1 = sortOf p2 /\ well_sorted p1 /\ well_sorted p2
   | Neg p => well_sorted p
   | Sym sym patterns =>
-    length patterns = length (sorts_of_symbol_args sym)
-    /\ fold_right and True (map well_sorted patterns)
-    /\ fold_right and True (zipWith (fun p s => sortOf p = s) patterns (sorts_of_symbol_args sym))
+    fold_right and True (map well_sorted patterns)
+    /\ Patterns_have_sorts (sorts_of_symbol_args sym) patterns
   | Ex _ p => well_sorted p
   | Mu _ p => well_sorted p
 end.
@@ -344,6 +349,23 @@ Proof.
     intros.
     simpl.
     apply interpretation_ex_sorted.
+    Check mod_els_have_sorts.
+    assert (Hstronger: forall ss : list (sort sigma),
+               Patterns_have_sorts ss args -> sets_have_sorts ss (map (Valuation_ext val) args)).
+    (* well_sorted (Sym sym args) gets into the induction hypothesis, which is then unprovable. *)
+    induction args.
+    * intros. destruct ss. simpl. constructor. simpl. reflexivity. simpl. exact I.
+      inversion H1. simpl in H2. inversion H2.
+    * intros. destruct ss. inversion H1. simpl in H2. inversion H2.
+      split. admit.
+      simpl.
+      split. admit.
+      inversion H.
+      destruct IHargs with (ss := ss). assumption.
+    simpl in H0.
+    Print sets_have_sorts.
+    destruct H0 as [Hlen [Hws Wso]].
+    split. admit.
     
       
     admit.
