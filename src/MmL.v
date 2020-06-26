@@ -331,9 +331,7 @@ Next Obligation.
   - exact (val_svar_sorted V v0).
 Qed.
 
-
-
-Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
+Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   : Ensemble (mod_carrier M) :=
   let carrier := mod_carrier M  in
   match p with
@@ -344,7 +342,11 @@ Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   | Neg p' => Setminus carrier (sort_carrier M (sortOf p')) (Valuation_ext val p')
   | Sym sym xs =>
     interpretation_ex sym (map (Valuation_ext val) xs)
-  | Ex v p => fun m => False
+  | Ex v p =>
+    fun m =>
+      exists m' : mod_carrier M,
+        exists _ : Ensembles.In (mod_carrier M) (sort_carrier M (sort_of_evar sigma v)) m',
+          Ensembles.In (mod_carrier M) (Valuation_ext (Valuation_update_evar val v m' _) p) m
   | Mu v p => fun m => False
   end.
 
