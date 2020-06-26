@@ -374,10 +374,7 @@ Proof.
       split. inversion Hlen. reflexivity. assumption.
       assumption.
     }
-    
-      (* Hstronger is proved *)
-    *
-      
+    inversion Hsymws. auto.
 
       
   - (* Ex *) admit.
