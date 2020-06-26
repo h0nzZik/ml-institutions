@@ -362,14 +362,13 @@ Proof.
       destruct ss. simpl. constructor.
       simpl. reflexivity. simpl. exact I.
       inversion Hsorts as [Hlen _]. simpl in Hlen. inversion Hlen.
-    * intros [| s ss] Hwellsorted [Hlen Hsorts]; simpl in *.
+    * intros [| s ss] [Ha_ws Hargs_ws] [Hlen Hsorts]; simpl in *.
       inversion Hlen.
-      split. admit.
-      simpl.
-      split. admit.
       inversion H as [|x l Ha Hargs]. subst.
-      simpl in Hwellsorted. destruct Hwellsorted as [Ha_ws Hargs_ws].
       destruct Hsorts as [Hsort_a Hsort_args].
+      split. simpl. rewrite -> map_length. assumption.
+      simpl.
+      split. unfold Pattern_has_sort in Hsort_a. rewrite -> Hsort_a in Ha. auto.
       destruct IHargs with (ss := ss). assumption. assumption.
       split. inversion Hlen. reflexivity. assumption.
       assumption.
