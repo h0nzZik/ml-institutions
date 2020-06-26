@@ -346,7 +346,7 @@ Proof.
     rewrite -> H4.
     assumption.
   - (* Sym *)
-    intros.
+    intros val Hsymws.
     simpl.
     apply interpretation_ex_sorted.
     Check mod_els_have_sorts.
@@ -354,25 +354,32 @@ Proof.
                fold_right and True (map well_sorted args) ->
                Patterns_have_sorts ss args ->
                sets_have_sorts ss (map (Valuation_ext val) args)).
-    
+    {
     (* well_sorted (Sym sym args) gets into the induction hypothesis, which is then unprovable. *)
-    clear H0.
+    clear Hsymws.
     induction args.
-    * intros. destruct ss. simpl. constructor. simpl. reflexivity. simpl. exact I.
-      inversion H1. simpl in H2. inversion H2.
-    * intros. destruct ss. inversion H1. simpl in H2. inversion H2.
+    * intros ss Hwellsorted Hsorts.
+      destruct ss. simpl. constructor.
+      simpl. reflexivity. simpl. exact I.
+      inversion Hsorts as [Hlen _]. simpl in Hlen. inversion Hlen.
+    * intros [| s ss] Hwellsorted [Hlen Hsorts]; simpl in *.
+      inversion Hlen.
       split. admit.
       simpl.
       split. admit.
-      inversion H.
-      destruct IHargs with (ss := ss). assumption.
-    simpl in H0.
-    Print sets_have_sorts.
-    destruct H0 as [Hlen [Hws Wso]].
-    split. admit.
+      inversion H as [|x l Ha Hargs]. subst.
+      simpl in Hwellsorted. destruct Hwellsorted as [Ha_ws Hargs_ws].
+      destruct Hsorts as [Hsort_a Hsort_args].
+      destruct IHargs with (ss := ss). assumption. assumption.
+      split. inversion Hlen. reflexivity. assumption.
+      assumption.
+    }
     
+      (* Hstronger is proved *)
+    *
       
-    admit.
+
+      
   - (* Ex *) admit.
   - (* Mu *) admit.
 Admitted.
