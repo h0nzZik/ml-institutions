@@ -43,7 +43,7 @@ Inductive Pattern : Type :=
 | Ex : evar sigma -> Pattern -> Pattern
 | Mu : svar sigma -> Pattern -> Pattern
 .
-Check List.Forall.
+
 (* A custom induction principle.
    https://stackoverflow.com/q/47097928/6209703
  *)
@@ -351,8 +351,12 @@ Proof.
     apply interpretation_ex_sorted.
     Check mod_els_have_sorts.
     assert (Hstronger: forall ss : list (sort sigma),
-               Patterns_have_sorts ss args -> sets_have_sorts ss (map (Valuation_ext val) args)).
+               fold_right and True (map well_sorted args) ->
+               Patterns_have_sorts ss args ->
+               sets_have_sorts ss (map (Valuation_ext val) args)).
+    
     (* well_sorted (Sym sym args) gets into the induction hypothesis, which is then unprovable. *)
+    clear H0.
     induction args.
     * intros. destruct ss. simpl. constructor. simpl. reflexivity. simpl. exact I.
       inversion H1. simpl in H2. inversion H2.
