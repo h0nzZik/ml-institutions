@@ -213,6 +213,14 @@ Definition sort_carrier (M : Model) (s : sort sigma) : Ensemble (mod_carrier M) 
   fun m =>
     mod_el_have_sort M s m.
 
+Lemma in_sort_carrier_implies_have_sort :
+  forall (M : Model) (s : sort sigma) (m : mod_carrier M),
+    Ensembles.In (mod_carrier M) (sort_carrier M s) m ->
+    mod_el_have_sort M s m.
+Proof.
+  auto.
+Qed.
+
 Definition sets_have_sorts
            {M : Model}
            (ss : list (sort sigma))
@@ -331,7 +339,7 @@ Next Obligation.
   - exact (val_svar_sorted V v0).
 Qed.
 
-Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
+Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   : Ensemble (mod_carrier M) :=
   let carrier := mod_carrier M  in
   match p with
@@ -345,8 +353,15 @@ Program Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   | Ex v p =>
     fun m =>
       exists m' : mod_carrier M,
-        exists _ : Ensembles.In (mod_carrier M) (sort_carrier M (sort_of_evar sigma v)) m',
-          Ensembles.In (mod_carrier M) (Valuation_ext (Valuation_update_evar val v m' _) p) m
+        exists H : Ensembles.In (mod_carrier M) (sort_carrier M (sort_of_evar sigma v)) m',
+          Ensembles.In
+            (mod_carrier M)
+            (Valuation_ext
+               (Valuation_update_evar
+                  val v m'
+                  (in_sort_carrier_implies_have_sort M (sort_of_evar sigma v) m' H)
+               )p)m
+            
   | Mu v p => fun m => False
   end.
 
@@ -432,9 +447,8 @@ Proof.
     
     simpl in H0. destruct H0 as [m' [Hm' Hx]].
     unfold Ensembles.In in *.
-    apply IHp with (val := Valuation_update_evar val v m' (Valuation_ext_obligation_1 M v m' Hm')).
+    
+    apply IHp with (val := Valuation_update_evar val v m' (in_sort_carrier_implies_have_sort M (sort_of_evar sigma v) m' Hm')).
     auto. auto.
-
-    admit.
   - (* Mu *) admit.
 Admitted.
