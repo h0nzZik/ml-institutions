@@ -6,7 +6,9 @@ Record Signature : Type :=
   { sort: Set;
     sort_eq_dec: forall s1 s2 : sort, {s1 = s2} + {s1 <> s2};
     evar : Set;
+    evar_eq_dec : forall v1 v2 : evar, {v1 = v2} + {v1 <> v2};
     svar : Set;
+    svar_eq_dec : forall v1 v2 : svar, {v1 = v2} + {v1 <> v2};
     symbol : Set;
     sort_of_evar : evar -> sort;
     sort_of_svar : svar -> sort;
@@ -287,6 +289,50 @@ Record Valuation {M : Model} : Type :=
     forall v : svar sigma, mod_set_have_sort M (sort_of_svar sigma v) (val_svar v);
   }.
 
+Program Definition Valuation_update_evar
+           {M : Model}
+           (V : @Valuation M)
+           (v : evar sigma)
+           (m : mod_carrier M)
+           (ws : mod_el_have_sort M (sort_of_evar sigma v) m)
+  : Valuation :=
+  {| val_evar := fun v' =>
+                   match evar_eq_dec sigma v v' with
+                   | left _ => m
+                   | right _ => val_evar V v'
+                   end;
+     val_svar := val_svar V;
+     val_svar_sorted := val_svar_sorted V;
+  |}.
+Next Obligation.
+  destruct (evar_eq_dec sigma v v0).
+  - rewrite <- e. assumption.
+  - exact (val_evar_sorted V v0).
+Qed.
+
+Program Definition Valuation_update_svar
+           {M : Model}
+           (V : @Valuation M)
+           (v : svar sigma)
+           (m : Ensemble (mod_carrier M))
+           (ws : mod_set_have_sort M (sort_of_svar sigma v) m)
+  : Valuation :=
+  {| val_evar := val_evar V;
+     val_svar := fun v' =>
+                   match svar_eq_dec sigma v v' with
+                   | left _ => m
+                   | right _ => val_svar V v'
+                   end;
+     val_evar_sorted := val_evar_sorted V;
+  |}.
+Next Obligation.
+  destruct (svar_eq_dec sigma v v0).
+  - rewrite <- e. assumption.
+  - exact (val_svar_sorted V v0).
+Qed.
+
+
+
 Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   : Ensemble (mod_carrier M) :=
   let carrier := mod_carrier M  in
@@ -302,8 +348,7 @@ Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   | Mu v p => fun m => False
   end.
 
-Check val_evar_sorted.
-(* TODO: lemma: If a pattern is well-sorted, then valuation_ext has the same sort as the pattern *)
+
 Lemma Valuation_ext_sorted :
   forall (M : Model) (val : @Valuation M) (p : Pattern),
     well_sorted p ->
