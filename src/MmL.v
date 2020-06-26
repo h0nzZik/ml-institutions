@@ -423,6 +423,18 @@ Proof.
     inversion Hsymws. auto.
 
       
-  - (* Ex *) admit.
+  - (* Ex *)
+    unfold mod_set_have_sort.
+    intros.
+    unfold mod_set_have_sort in IHp.
+    simpl.
+    unfold Ensembles.In in H0.
+    
+    simpl in H0. destruct H0 as [m' [Hm' Hx]].
+    unfold Ensembles.In in *.
+    apply IHp with (val := Valuation_update_evar val v m' (Valuation_ext_obligation_1 M v m' Hm')).
+    auto. auto.
+
+    admit.
   - (* Mu *) admit.
 Admitted.
