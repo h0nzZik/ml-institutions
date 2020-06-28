@@ -36,22 +36,60 @@ Definition sorts_of_symbol_args (sym : symbol sigma) : list (sort sigma) :=
 Definition sort_of_symbol_result (sym : symbol sigma) : sort sigma :=
   snd (sort_of_symbol sigma sym).
 
-Inductive Pattern : Type :=
-| EVar : evar sigma -> Pattern
-| SVar : svar sigma -> Pattern
-| And : Pattern -> Pattern -> Pattern
-| Neg : Pattern -> Pattern                                
-| Sym : symbol sigma -> list Pattern -> Pattern
-| Ex : evar sigma -> Pattern -> Pattern
-| Mu : svar sigma -> Pattern -> Pattern
-.
+(* List of set variables that are not allowed to be used positively or negatively. *)
+Record SVarBlacklist : Set :=
+  { blacklistNegative : list (svar sigma);
+    blacklistPositive : list (svar sigma);
+  }.
 
+Definition SVB_empty : SVarBlacklist :=
+  {| blacklistNegative := nil;
+     blacklistPositive := nil;
+  |}.
+
+Definition SVB_add (v : svar sigma) (b : SVarBlacklist) : SVarBlacklist :=
+  {| blacklistNegative := cons v (blacklistNegative b);
+     blacklistPositive := blacklistPositive b;
+  |}.
+
+Definition SVB_swap (b : SVarBlacklist) : SVarBlacklist :=
+  {| blacklistNegative := blacklistPositive b;
+     blacklistPositive := blacklistNegative b;
+  |}.
+
+
+Section hlist.
+  Variable A : Type.
+  Variable B : A -> Type.
+  Inductive hlist : list A -> Type :=
+  | HNil : hlist nil
+  | HCons : forall (x : A) (ls : list A), B x -> hlist ls -> hlist (x :: ls)
+  .
+End hlist.
+
+Inductive Pattern : SVarBlacklist -> sort sigma -> Type :=
+| EVar : forall (v : evar sigma)(b : SVarBlacklist),
+    Pattern b (sort_of_evar sigma v)
+| SVar : forall (v : svar sigma)(b : SVarBlacklist),
+    ~List.In v (blacklistPositive b) -> Pattern b (sort_of_svar sigma v)
+| And : forall (s : sort sigma)(b : SVarBlacklist),
+    Pattern b s -> Pattern b s -> Pattern b s
+| Neg : forall (s : sort sigma)(b : SVarBlacklist),
+    Pattern (SVB_swap b) s -> Pattern b s
+| Sym : forall (sym : symbol sigma)(b : SVarBlacklist),
+    hlist (sort sigma) (Pattern b) (sorts_of_symbol_args sym) -> Pattern b (sort_of_symbol_result sym)
+| Ex : forall (s : sort sigma)(b : SVarBlacklist),
+    evar sigma -> Pattern b s -> Pattern b s
+| Mu : forall (s : sort sigma)(b : SVarBlacklist) (v : svar sigma),
+    Pattern (SVB_add v b) s -> Pattern b s
+.
+Check Pattern_ind.
 (* A custom induction principle.
    https://stackoverflow.com/q/47097928/6209703
  *)
 Section Pattern_nested_ind.
-  Variable P : Pattern -> Prop.
-  Hypothesis EVar_case : forall (v : evar sigma), P (EVar v).
+  Variable P : forall (b : SVarBlacklist) (s : sort sigma), Pattern b s -> Prop.
+  Hypothesis EVar_case : forall (v : evar sigma)(b : SVarBlacklist), P b (sort_of_evar sigma v) (EVar v).
   Hypothesis SVar_case : forall (v : svar sigma), P (SVar v).
   Hypothesis And_case : forall (p1 p2 : Pattern), P p1 -> P p2 -> P (And p1 p2).
   Hypothesis Neg_case : forall (p : Pattern), P p -> P (Neg p).
