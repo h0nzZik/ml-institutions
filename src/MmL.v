@@ -65,6 +65,8 @@ Section hlist.
   | HNil : hlist nil
   | HCons : forall (x : A) (ls : list A), B x -> hlist ls -> hlist (x :: ls)
   .
+
+  Check Forall.
 End hlist.
 
 Inductive Pattern : SVarBlacklist -> sort sigma -> Type :=
@@ -89,10 +91,10 @@ Check Pattern_ind.
  *)
 Section Pattern_nested_ind.
   Variable P : forall (b : SVarBlacklist) (s : sort sigma), Pattern b s -> Prop.
-  Hypothesis EVar_case : forall (v : evar sigma)(b : SVarBlacklist), P b (sort_of_evar sigma v) (EVar v).
-  Hypothesis SVar_case : forall (v : svar sigma), P (SVar v).
-  Hypothesis And_case : forall (p1 p2 : Pattern), P p1 -> P p2 -> P (And p1 p2).
-  Hypothesis Neg_case : forall (p : Pattern), P p -> P (Neg p).
+  Hypothesis EVar_case : forall (v : evar sigma)(b : SVarBlacklist), P b (sort_of_evar sigma v) (EVar v b).
+  Hypothesis SVar_case : forall (v : svar sigma)(b : SVarBlacklist)(pf : ~ In v (blacklistPositive b)), P b (sort_of_svar sigma v) (SVar v b pf).
+  Hypothesis And_case : forall (s : sort sigma) (b : SVarBlacklist) (p1 p2 : Pattern b s), P b s p1 -> P b s p2 -> P b s (And s b p1 p2).
+  Hypothesis Neg_case : forall (s : sort sigma)(b : SVarBlacklist)(p : Pattern (SVB_swap b) s), P (SVB_swap b) s p -> P b s (Neg s b p).
   Hypothesis Sym_case : forall (sym : symbol sigma)(args : list Pattern),
       List.Forall P args -> P (Sym sym args).
   Hypothesis Ex_case : forall (v : evar sigma)(p : Pattern), P p -> P (Ex v p).
