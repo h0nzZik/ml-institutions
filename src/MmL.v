@@ -138,144 +138,28 @@ Fixpoint zipWith {A B C : Type}(f: A -> B -> C)(xs : list A)(ys : list B) : list
   | cons x xs, cons y ys => cons (f x y) (zipWith f xs ys)
   end.
 
-
-Fixpoint sortOf (phi : Pattern) : sort sigma :=
-  match phi with
-  | EVar v => sort_of_evar sigma v
-  | SVar v => sort_of_svar sigma v
-  | And l r => sortOf l
-  | Neg p => sortOf p
-  | Sym sym _ => sort_of_symbol_result sym
-  | Ex _ p => sortOf p
-  | Mu _ p => sortOf p
-  end.
-
-Definition Pattern_has_sort (s : sort sigma) (phi : Pattern) : Prop :=
-  sortOf phi = s.
-
-Definition Patterns_have_sorts (ss : list (sort sigma)) (ps : list Pattern) : Prop :=
-  length ss = length ps /\ fold_right and True (zipWith Pattern_has_sort ss ps).
-
-Fixpoint well_sorted (phi : Pattern) : Prop :=
-  match phi with
-  | EVar v => True
-  | SVar v => True
-  | And p1 p2 => sortOf p1 = sortOf p2 /\ well_sorted p1 /\ well_sorted p2
-  | Neg p => well_sorted p
-  | Sym sym patterns =>
-    fold_right and True (map well_sorted patterns)
-    /\ Patterns_have_sorts (sorts_of_symbol_args sym) patterns
-  | Ex _ p => well_sorted p
-  | Mu _ p => well_sorted p
-end.
-
-(* returns a pair (hasPositiveOccurence, hasNegativeOccurence) *)
-Fixpoint SetVariableOccurences (v : svar sigma) (phi : Pattern) : Prop * Prop :=
-  match phi with
-  | EVar _ => (False, False)
-  | SVar v' => (v' = v, False)
-  | And p1 p2 =>
-    let (pos_p1, neg_p1) := SetVariableOccurences v p1 in
-    let (pos_p2, neg_p2) := SetVariableOccurences v p2 in
-    (pos_p1 \/ pos_p2, neg_p1 \/ neg_p2)
-  | Neg p =>
-    let (pos, neg) := SetVariableOccurences v p in
-    (neg, pos)
-  | Sym _ patterns
-    => fold_right (fun (x y : Prop * Prop) =>
-                     let (a,b) := x in
-                     let (c,d) := y in
-                     ((a \/ c), (b \/ d)))
-                  (False, False)
-                  (map (SetVariableOccurences v) patterns)
-  | Ex _ p => SetVariableOccurences v p
-  | Mu v' p =>
-    let (pos, neg) := SetVariableOccurences v p in
-    (not (v = v') /\ pos, not (v = v') /\ neg)
-  end.
-
-Definition hasNegativeOccurence (phi : Pattern) (v : svar sigma) : Prop :=
-  let (_, has_neg) := SetVariableOccurences v phi in has_neg.
-
-Print Sym.
-Fixpoint noNegativeOccurenceOfMuBoundVariable (phi : Pattern) : Prop :=
-  match phi with
-  | EVar _ => True
-  | SVar _ => True
-  | And p1 p2 =>
-    noNegativeOccurenceOfMuBoundVariable p1
-    /\ noNegativeOccurenceOfMuBoundVariable p2
-  | Neg p => noNegativeOccurenceOfMuBoundVariable p
-  | Sym _ patterns
-    => fold_right and True (map noNegativeOccurenceOfMuBoundVariable patterns)
-  | Ex _ p => noNegativeOccurenceOfMuBoundVariable p
-  | Mu v p
-    => not (hasNegativeOccurence p v)
-       /\ noNegativeOccurenceOfMuBoundVariable p
-  end.
-
-Definition well_formed (p : Pattern) : Prop :=
-  well_sorted p /\ noNegativeOccurenceOfMuBoundVariable p
-.
-
-Record WFPattern : Type :=
-  { wfp_pattern : Pattern;
-    wfp_well_formed : well_formed wfp_pattern;
-  }.
-
 Record Model : Type :=
-  { mod_carrier : Set;
-    mod_el_sort : mod_carrier -> sort sigma;
-
-    (* helper functions *)
-    mod_el_have_sort (s : sort sigma) (x : mod_carrier) : Prop :=
-      mod_el_sort x = s;
-    
-    mod_set_have_sort (s : sort sigma) (e : Ensemble mod_carrier) : Prop :=
-      forall x : mod_carrier,
-        Ensembles.In mod_carrier e x -> mod_el_have_sort s x;
-    
-    mod_els_have_sorts (ss : list (sort sigma)) (xs : list mod_carrier) : Prop :=
-      fold_right and True (zipWith mod_el_have_sort ss xs);
+  { mod_carrier : sort sigma -> Set;
       
-    mod_carrier_nonempty : forall (s : sort sigma), exists (x : mod_carrier), mod_el_have_sort s x;
+    mod_carrier_nonempty : forall (s : sort sigma), mod_carrier s;
 
-    mod_interpretation : symbol sigma -> list mod_carrier -> Ensemble (mod_carrier);
-
-    mod_interpretation_sorted :
-      forall (sym : symbol sigma)
-             (args : list mod_carrier),
-        mod_els_have_sorts (sorts_of_symbol_args sym) args
-        -> mod_set_have_sort (sort_of_symbol_result sym) (mod_interpretation sym args);
-
-    mod_interpretation_ill :
-      forall (sym : symbol sigma)
-             (args : list mod_carrier),
-        ~mod_els_have_sorts (sorts_of_symbol_args sym) args
-        -> mod_interpretation sym args = Empty_set mod_carrier;
+    mod_interpretation : forall sym : symbol sigma,
+        hlist (sort sigma) mod_carrier (sorts_of_symbol_args sym) ->
+        Ensemble (mod_carrier (sort_of_symbol_result sym));
   }.
 
-Definition sort_carrier (M : Model) (s : sort sigma) : Ensemble (mod_carrier M) :=
-  fun m =>
-    mod_el_have_sort M s m.
-
-Lemma in_sort_carrier_implies_have_sort :
-  forall (M : Model) (s : sort sigma) (m : mod_carrier M),
-    Ensembles.In (mod_carrier M) (sort_carrier M s) m ->
-    mod_el_have_sort M s m.
-Proof.
-  auto.
-Qed.
-
-Definition sets_have_sorts
-           {M : Model}
-           (ss : list (sort sigma))
-           (es : list (Ensemble (mod_carrier M)))
-  : Prop := 
-  length ss = length es /\ fold_right and True (zipWith (mod_set_have_sort M) ss es)
-.
-
-Definition list_in_ensemble_list {a : Type}(sets : list (Ensemble a))(elems : list a) : Prop :=
+Print hlist.
+Check Ensembles.In.
+Check HCons.
+Definition hlist_in_ensemble_hlist {A : Type}{B : A -> Type}(types : list A)
+           (sets : hlist A (fun a => Ensemble (B a)) types)(elems : hlist A B types) : Prop :=
+  match sets,elems with
+  | HNil _ _, HNil _ _ => True                            
+  | HCons _ _ a1 a1s b1 b1s, HCons _ _ a2 a2s b2 b2s =>
+    Ensembles.In (B a1) b1 b2 (* TODO recursion *)
+  | _, _ => False
+  end.
+  False.
   length elems = length sets
   /\ fold_right and True (zipWith (Ensembles.In a) sets elems).
 
