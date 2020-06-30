@@ -90,7 +90,7 @@ Inductive Pattern : SVarBlacklist -> sort sigma -> Type :=
 | Mu : forall (s : sort sigma)(b : SVarBlacklist) (v : svar sigma),
     Pattern (SVB_add v b) s -> Pattern b s
 .
-Check Pattern_ind.
+
 (* A custom induction principle.
    https://stackoverflow.com/q/47097928/6209703
  *)
@@ -100,8 +100,6 @@ Section Pattern_nested_ind.
   Hypothesis SVar_case : forall (v : svar sigma)(b : SVarBlacklist)(pf : ~ In v (blacklistPositive b)), P b (sort_of_svar sigma v) (SVar v b pf).
   Hypothesis And_case : forall (s : sort sigma) (b : SVarBlacklist) (p1 p2 : Pattern b s), P b s p1 -> P b s p2 -> P b s (And s b p1 p2).
   Hypothesis Neg_case : forall (s : sort sigma)(b : SVarBlacklist)(p : Pattern (SVB_swap b) s), P (SVB_swap b) s p -> P b s (Neg s b p).
-  Check hlist.
-  Check Forall.
   Hypothesis Sym_case :
     forall (sym : symbol sigma)(b : SVarBlacklist)
            (args : hlist (sort sigma) (Pattern b) (sorts_of_symbol_args sym)),
@@ -109,31 +107,28 @@ Section Pattern_nested_ind.
       P b (sort_of_symbol_result sym) (Sym sym b args).
   Hypothesis Ex_case : forall (s : sort sigma)(b : SVarBlacklist) (v : evar sigma)(p : Pattern b s),
       P b s p -> P b s (Ex s b v p).
-  Hypothesis Mu_case : forall (v : svar sigma)(p : Pattern), P p -> P (Mu v p).
+  Hypothesis Mu_case : forall (s : sort sigma)(b : SVarBlacklist)(v : svar sigma)
+                              (p : Pattern (SVB_add v b) s), P (SVB_add v b) s p -> P b s (Mu s b v p).
 
-  Print Forall.
-  Fixpoint Pattern_nested_ind (p : Pattern) : P p :=
+  Fixpoint Pattern_nested_ind (s : sort sigma) (b : SVarBlacklist) (p : Pattern b s) : P b s p :=
     match p with
-    | EVar v => EVar_case v
-    | SVar v => SVar_case v
-    | And p1 p2 => And_case p1 p2 (Pattern_nested_ind p1) (Pattern_nested_ind p2)
-    | Neg p' => Neg_case p' (Pattern_nested_ind p')
-    | Sym sym args =>
-      let H := (fix f (xs : list Pattern) : Forall P xs :=
+    | EVar v b => EVar_case v b
+    | SVar v b pf => SVar_case v b pf 
+    | And s b p1 p2 => And_case s b p1 p2 (Pattern_nested_ind s b p1) (Pattern_nested_ind s b p2)
+    | Neg s b p' => Neg_case s b p' (Pattern_nested_ind s (SVB_swap b) p')
+    | Sym sym b args =>
+      let H := (fix f (ss : list (sort sigma))
+                    (xs : hlist (sort sigma) (Pattern b) ss) : Forall (sort sigma) (Pattern b) (P b) ss xs :=
                   match xs with
-                  | nil => Forall_nil _
-                  | cons x xs => Forall_cons _ (Pattern_nested_ind x) (f xs)
+                  | HNil _ _ => Forall_nil (sort sigma) (Pattern b) (P b)
+                  | HCons _ _ s ss x xs => Forall_cons (sort sigma) (Pattern b) (P b) s ss x xs (Pattern_nested_ind s b x) (f ss xs)
                   end
-               ) args in
-      Sym_case sym args H
-    | Ex v p' => Ex_case v p' (Pattern_nested_ind p')
-    | Mu v p' => Mu_case v p' (Pattern_nested_ind p')
+               ) (sorts_of_symbol_args sym) args in
+      Sym_case sym b args H
+    | Ex s b v p' => Ex_case s b v p' (Pattern_nested_ind s b p')
+    | Mu s b v p' => Mu_case s b v p' (Pattern_nested_ind s (SVB_add v b) p')
     end.
 End Pattern_nested_ind.
-
-
-(* TODO need better induction *)
-Check Pattern_ind.
 
 Fixpoint zipWith {A B C : Type}(f: A -> B -> C)(xs : list A)(ys : list B) : list C :=
   match xs,ys with
