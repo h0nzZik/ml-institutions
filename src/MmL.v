@@ -152,13 +152,22 @@ Print hlist.
 Check Ensembles.In.
 Check HCons.
 Definition hlist_in_ensemble_hlist {A : Type}{B : A -> Type}(types : list A)
-           (sets : hlist A (fun a => Ensemble (B a)) types)(elems : hlist A B types) : Prop :=
-  match sets,elems with
-  | HNil _ _, HNil _ _ => True                            
-  | HCons _ _ a1 a1s b1 b1s, HCons _ _ a2 a2s b2 b2s =>
-    Ensembles.In (B a1) b1 b2 (* TODO recursion *)
-  | _, _ => False
-  end.
+           (sets : hlist A (fun a => Ensemble (B a)) types) (elems : hlist A B types) : Prop :=
+  match sets (*in hlist _ _ l return (match l with
+                                          | nil => hlist _ _ l
+                                          | cons x xs => hlist _ _ (cons x xs)
+                                   end -> Prop) *) with
+  | HNil _ _ =>
+    fun elems =>
+      True                            
+  | HCons _ _ a1 a1s b1 b1s =>
+    fun elems =>
+      match elems with
+      | HNil _ _ => False
+      | HCons _ _ a2 a2s b2 b2s =>
+        Ensembles.In (B a1) b1 b2 (* TODO recursion *)
+      end
+  end elems.
   False.
   length elems = length sets
   /\ fold_right and True (zipWith (Ensembles.In a) sets elems).
