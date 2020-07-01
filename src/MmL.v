@@ -203,26 +203,22 @@ Definition Valuation_update_evar
      val_svar := val_svar V;
   |}.
 
-Program Definition Valuation_update_svar
+Definition Valuation_update_svar
            {M : Model}
            (V : @Valuation M)
            (v : svar sigma)
-           (m : Ensemble (mod_carrier M))
-           (ws : mod_set_have_sort M (sort_of_svar sigma v) m)
+           (m : Ensemble (mod_carrier M (sort_of_svar sigma v)))
   : Valuation :=
   {| val_evar := val_evar V;
      val_svar := fun v' =>
                    match svar_eq_dec sigma v v' with
-                   | left _ => m
+                   | left e =>
+                     match e with
+                     | eq_refl _ => m
+                     end
                    | right _ => val_svar V v'
                    end;
-     val_evar_sorted := val_evar_sorted V;
   |}.
-Next Obligation.
-  destruct (svar_eq_dec sigma v v0).
-  - rewrite <- e. assumption.
-  - exact (val_svar_sorted V v0).
-Qed.
 
 Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
   : Ensemble (mod_carrier M) :=
