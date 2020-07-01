@@ -180,56 +180,28 @@ Definition interpretation_ex
     Ensembles.In (mod_carrier M (sort_of_symbol_result sym)) (mod_interpretation M sym args') m
 .
 
-Lemma interpretation_ex_sorted :
-  forall (M : Model)(sym : symbol sigma)(args : list (Ensemble (mod_carrier M))),
-    sets_have_sorts (sorts_of_symbol_args sym) args ->
-    mod_set_have_sort M (sort_of_symbol_result sym) (interpretation_ex sym args).
-Proof.
-  intros. unfold mod_set_have_sort.
-  intros. unfold mod_el_have_sort.
-  unfold Ensembles.In in H0. unfold interpretation_ex in H0.
-  destruct H0 as [args' [H1 H2]].
-  remember (list_in_ensemble_list_sorted M (sorts_of_symbol_args sym) args args' H H1) as args'_sorts.
-  clear Heqargs'_sorts.
-  remember (mod_interpretation_sorted M sym args' args'_sorts) as interp_sorts.
-  clear Heqinterp_sorts.
-  unfold mod_set_have_sort in interp_sorts.
-  remember (interp_sorts x H2) as x_sort.
-  clear Heqx_sort.
-  unfold mod_el_have_sort in x_sort. assumption.
-Qed.
-
 Record Valuation {M : Model} : Type :=
   {
-  val_evar : evar sigma -> mod_carrier M;
-  val_svar : svar sigma -> Ensemble (mod_carrier M);
-
-  val_evar_sorted :
-    forall v : evar sigma, mod_el_have_sort M (sort_of_evar sigma v) (val_evar v);
-  val_svar_sorted :
-    forall v : svar sigma, mod_set_have_sort M (sort_of_svar sigma v) (val_svar v);
+  val_evar : forall v : evar sigma, mod_carrier M (sort_of_evar sigma v);
+  val_svar : forall v : svar sigma, Ensemble (mod_carrier M (sort_of_svar sigma v));
   }.
 
-Program Definition Valuation_update_evar
+Definition Valuation_update_evar
            {M : Model}
            (V : @Valuation M)
            (v : evar sigma)
-           (m : mod_carrier M)
-           (ws : mod_el_have_sort M (sort_of_evar sigma v) m)
+           (m : mod_carrier M (sort_of_evar sigma v))
   : Valuation :=
   {| val_evar := fun v' =>
                    match evar_eq_dec sigma v v' with
-                   | left _ => m
-                   | right _ => val_evar V v'
-                   end;
+                   | left e =>
+                     match e with
+                     | eq_refl _ => fun m => m
+                     end
+                   | right _ => fun _ => val_evar V v'
+                   end m;
      val_svar := val_svar V;
-     val_svar_sorted := val_svar_sorted V;
   |}.
-Next Obligation.
-  destruct (evar_eq_dec sigma v v0).
-  - rewrite <- e. assumption.
-  - exact (val_evar_sorted V v0).
-Qed.
 
 Program Definition Valuation_update_svar
            {M : Model}
