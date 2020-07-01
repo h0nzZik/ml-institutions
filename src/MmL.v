@@ -57,7 +57,6 @@ Definition SVB_swap (b : SVarBlacklist) : SVarBlacklist :=
      blacklistPositive := blacklistNegative b;
   |}.
 
-
 Section hlist.
   Variable A : Type.
   Variable B : A -> Type.
@@ -65,6 +64,16 @@ Section hlist.
   | HNil : hlist nil
   | HCons : forall (x : A) (ls : list A), B x -> hlist ls -> hlist (x :: ls)
   .
+
+  Definition hhead (x : A) (xs : list A) (l : hlist (cons x xs)) : B x :=
+    match l with
+    | HCons _ _ h _ => h
+    end.
+
+  Definition htail x xs (l : hlist (cons x xs)) : hlist xs :=
+    match l with
+    | HCons _ _ _ tl => tl
+    end.
 
   Variable P : forall a : A, B a -> Prop.
   Inductive Forall : forall (ts : list A), hlist ts -> Prop :=
@@ -148,51 +157,16 @@ Record Model : Type :=
         Ensemble (mod_carrier (sort_of_symbol_result sym));
   }.
 
-Print hlist.
-Check Ensembles.In.
-Check HCons.
-Definition hlist_in_ensemble_hlist {A : Type}{B : A -> Type}(types : list A)
-           (sets : hlist A (fun a => Ensemble (B a)) types) (elems : hlist A B types) : Prop :=
-  match sets (*in hlist _ _ l return (match l with
-                                          | nil => hlist _ _ l
-                                          | cons x xs => hlist _ _ (cons x xs)
-                                   end -> Prop) *) with
-  | HNil _ _ =>
-    fun elems =>
-      True                            
-  | HCons _ _ a1 a1s b1 b1s =>
-    fun elems =>
-      match elems with
-      | HNil _ _ => False
-      | HCons _ _ a2 a2s b2 b2s =>
-        Ensembles.In (B a1) b1 b2 (* TODO recursion *)
-      end
-  end elems.
-  False.
-  length elems = length sets
-  /\ fold_right and True (zipWith (Ensembles.In a) sets elems).
-
-Lemma list_in_ensemble_list_sorted :
-  forall (M : Model)
-         (ss : list (sort sigma))
-         (es : list (Ensemble (mod_carrier M)))
-         (xs : list (mod_carrier M)),
-    sets_have_sorts ss es ->
-    list_in_ensemble_list es xs ->
-    mod_els_have_sorts M ss xs.
-Proof.
-  induction ss; intros; unfold mod_els_have_sorts; destruct xs; simpl; try exact I.
-  (* `es` cannot be `nil` *)
-  destruct es; inversion H; try inversion H1.
-  split.
-  - unfold mod_el_have_sort.
-    destruct H,H0. simpl in *. destruct H2.
-    unfold mod_set_have_sort in H2. firstorder. 
-  - unfold mod_els_have_sorts in IHss. apply (IHss es). inversion H0.
-    unfold sets_have_sorts. split. assumption. simpl in H2. destruct H2. assumption.
-    inversion H0. unfold list_in_ensemble_list. split. simpl in H3. inversion H3. reflexivity.
-    simpl in H5. destruct H5. assumption.
-Qed.    
+(* https://stackoverflow.com/a/62679065/6209703 *)
+Fixpoint hlist_in_ensemble_hlist {A : Type}{B : A -> Type}(types : list A)
+        (sets : hlist A (fun a => Ensemble (B a)) types) (elems : hlist A B types) : Prop :=
+  match types with
+  | nil => fun _ _ => True
+  | cons t ts =>
+    fun sets elems =>
+      Ensembles.In (B t) (hhead A (fun a => Ensemble (B a)) t ts sets) (hhead A B t ts elems)
+      /\ hlist_in_ensemble_hlist ts (htail A (fun a => Ensemble (B a)) t ts sets) (htail A B t ts elems)
+  end sets elems.
 
 (* Pointwise extension of the interpretation *)
 Definition interpretation_ex
