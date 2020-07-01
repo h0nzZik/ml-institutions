@@ -171,13 +171,13 @@ Fixpoint hlist_in_ensemble_hlist {A : Type}{B : A -> Type}(types : list A)
 (* Pointwise extension of the interpretation *)
 Definition interpretation_ex
         {M : Model}
-        (sym : symbol sigma)        
-        (args : list (Ensemble (mod_carrier M)))
-  : Ensemble (mod_carrier M) :=
+        (sym : symbol sigma)
+        (args : hlist (sort sigma) (fun s => Ensemble (mod_carrier M s)) (sorts_of_symbol_args sym))
+  : Ensemble (mod_carrier M (sort_of_symbol_result sym)) :=
   fun m =>
-    exists (args' : list (mod_carrier M)),
-    list_in_ensemble_list args args' /\ 
-    Ensembles.In (mod_carrier M) (mod_interpretation M sym args') m
+    exists (args' : hlist (sort sigma) (mod_carrier M) (sorts_of_symbol_args sym)),
+    hlist_in_ensemble_hlist (sorts_of_symbol_args sym) args args' /\ 
+    Ensembles.In (mod_carrier M (sort_of_symbol_result sym)) (mod_interpretation M sym args') m
 .
 
 Lemma interpretation_ex_sorted :
