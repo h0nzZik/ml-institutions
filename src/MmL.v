@@ -220,11 +220,19 @@ Definition Valuation_update_svar
                    end;
   |}.
 
-Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
-  : Ensemble (mod_carrier M) :=
-  let carrier := mod_carrier M  in
+Check Sym.
+Check interpretation_ex.
+Check Complement.
+Fixpoint Valuation_ext {M : Model} (val : @Valuation M)
+         (b : SVarBlacklist) (s : sort sigma) (p : Pattern b s)
+  : Ensemble (mod_carrier M s) :=
   match p with
-  | EVar v => Singleton carrier (val_evar val v)
+  | EVar v _ => Singleton (mod_carrier M (sort_of_evar sigma v)) (val_evar val v)
+  | Neg s b p' => Complement (mod_carrier M s) (Valuation_ext val (SVB_swap b) s p')
+(*  | Sym sym b args => interpretation_ex sym NEED A MAP HERE *)
+  | _ => fun m => False
+  end.
+(*
   | SVar v => val_svar val v
   | And p1 p2 =>
     Intersection carrier (Valuation_ext val p1) (Valuation_ext val p2)
@@ -244,7 +252,7 @@ Fixpoint Valuation_ext {M : Model} (val : @Valuation M) (p : Pattern)
                )p)m
             
   | Mu v p => fun m => False
-  end.
+  end.*)
 
 
 Lemma Valuation_ext_sorted :
