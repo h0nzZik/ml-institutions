@@ -1,6 +1,8 @@
 (* Matching mu logic *)
 Require Import Coq.Sets.Ensembles.
 Require Import Coq.Lists.List.
+Require Import Lib.KnasterTarski.
+Require Import Coq.Relations.Relation_Definitions.
 
 Record Signature : Type :=
   { sort: Set;
@@ -209,6 +211,33 @@ Record Model : Type :=
         hlist (sort sigma) mod_carrier (sorts_of_symbol_args sym) ->
         Ensemble (mod_carrier (sort_of_symbol_result sym));
   }.
+
+Program Instance ModelOrderedSet {M : Model} {s : sort sigma} : OrderedSet (Ensemble (mod_carrier M s)) :=
+  {| leq := Ensembles.Included (mod_carrier M s);
+  |}.
+Next Obligation.
+  constructor.
+  * unfold reflexive. unfold Included. auto.
+  * unfold transitive. unfold Included. auto.
+  * unfold antisymmetric. intros.
+    apply Extensionality_Ensembles. split; auto.
+Qed.
+
+Definition Meet {M : Model} {s : sort sigma} (ee : Ensemble (Ensemble (mod_carrier M s))) : Ensemble (mod_carrier M s) :=
+  fun m => forall e : Ensemble (mod_carrier M s),
+      Ensembles.In (Ensemble (mod_carrier M s)) ee e -> Ensembles.In (mod_carrier M s) e m.
+
+(* TODO lemma that Meet behaves like a meet. We will use the lemma in the two obligations
+   from the following definition: *)
+Program Instance ModelCompleteLattice
+        {M : Model} {s : sort sigma} : CompleteLattice (Ensemble (mod_carrier M s)) :=
+  {| meet := Meet;
+     join := joinFromMeet Meet;
+  |}.
+Next Obligation.
+Admitted.
+Next Obligation.
+Admitted.
 
 (* https://stackoverflow.com/a/62679065/6209703 *)
 Fixpoint hlist_in_ensemble_hlist {A : Type}{B : A -> Type}(types : list A)
