@@ -74,7 +74,7 @@ Section hlist.
     match l with
     | HCons _ _ _ tl => tl
     end.
-
+  
   Variable P : forall a : A, B a -> Prop.
   Inductive Forall : forall (ts : list A), hlist ts -> Prop :=
   | Forall_nil : Forall nil HNil
@@ -82,6 +82,21 @@ Section hlist.
       P t x -> Forall ts xs -> Forall (cons t ts) (HCons t ts x xs)
   .
 End hlist.
+
+Section hlist_hmap.
+  Variable A : Type.
+  Variable B C : A -> Type.
+  Variable F : forall a : A, B a -> C a.
+
+  Fixpoint hmap (ts : list A) : hlist A B ts -> hlist A C ts :=
+    match ts with
+    | nil => fun _ => HNil A C
+    | cons x xs =>
+      fun l =>
+        HCons A C x xs (F x (hhead A B x xs l)) (hmap xs (htail A B x xs l))             
+    end.
+End hlist_hmap.
+
 
 Inductive Pattern : SVarBlacklist -> sort sigma -> Type :=
 | EVar : forall (v : evar sigma)(b : SVarBlacklist),
