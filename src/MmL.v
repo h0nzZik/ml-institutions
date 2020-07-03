@@ -87,7 +87,7 @@ Section hlist_hmap.
   Variable A : Type.
   Variable B C : A -> Type.
   Variable F : forall a : A, B a -> C a.
-
+(*
   Fixpoint hmap (ts : list A) : hlist A B ts -> hlist A C ts :=
     match ts with
     | nil => fun _ => HNil A C
@@ -95,6 +95,20 @@ Section hlist_hmap.
       fun l =>
         HCons A C x xs (F x (hhead A B x xs l)) (hmap xs (htail A B x xs l))             
     end.
+ *)
+  (* This version of hmap is uglier than the above one, but it does explicit
+     matching on its second argument, and therefore can be used when reasoning
+     about termination of `Valuation_ext`. *)
+  Fixpoint hmap (ts : list A) (l : hlist A B ts) : hlist A C ts :=
+    match ts with
+    | nil => fun _ => HNil A C
+    | cons x xs =>
+      fun l : hlist A B (cons x xs) =>
+        match l with
+        | HCons _ _ x xs h t =>
+          HCons A C x xs (F x h) (hmap xs t)
+        end
+    end l.
 End hlist_hmap.
 
 
@@ -114,6 +128,30 @@ Inductive Pattern : SVarBlacklist -> sort sigma -> Type :=
 | Mu : forall (s : sort sigma)(b : SVarBlacklist) (v : svar sigma),
     Pattern (SVB_add v b) s -> Pattern b s
 .
+(*
+Locate "+".
+Locate sum.
+Check Nat.add.
+Check Sym.
+Fixpoint Pattern_measure b s (p : Pattern b s) : nat :=
+  match p with
+  | EVar _ _ => 0
+  | SVar _ _ _ => 0
+  | And s b p1 p2 => S (Nat.add (Pattern_measure b s p1) (Pattern_measure b s p2))
+  | Neg s b p => S (Pattern_measure (SVB_swap b) s p)
+  | Sym sym b args
+    => S (
+           (fix f (ts : list (sort sigma)) (args : hlist (sort sigma) (Pattern b) ts) : nat :=
+              match ts with
+              | nil => 0
+              | cons x xs => Nat.add () ()
+             0
+           ) (sorts_of_symbol_args sym) args
+         )
+  | Ex s b v p => S (Pattern_measure b s p)
+  | Mu s b v p => S (Pattern_measure (SVB_add v b) s p)
+  end.
+*)
 
 (* A custom induction principle.
    https://stackoverflow.com/q/47097928/6209703
@@ -235,16 +273,23 @@ Definition Valuation_update_svar
                    end;
   |}.
 
-Check Sym.
 Check interpretation_ex.
-Check Complement.
+Check hmap. Check Pattern.
 Fixpoint Valuation_ext {M : Model} (val : @Valuation M)
-         (b : SVarBlacklist) (s : sort sigma) (p : Pattern b s)
+         (b : SVarBlacklist) (s : sort sigma) (p : Pattern b s) {struct p}
   : Ensemble (mod_carrier M s) :=
   match p with
   | EVar v _ => Singleton (mod_carrier M (sort_of_evar sigma v)) (val_evar val v)
   | Neg s b p' => Complement (mod_carrier M s) (Valuation_ext val (SVB_swap b) s p')
-(*  | Sym sym b args => interpretation_ex sym NEED A MAP HERE *)
+  | Sym sym b args =>
+    interpretation_ex sym (hmap (sort sigma)
+                                (Pattern b)
+                                (fun s => Ensemble (mod_carrier M s))
+                                (Valuation_ext val b)
+                                (sorts_of_symbol_args sym)
+                                args
+                          )
+                      
   | _ => fun m => False
   end.
 (*
