@@ -273,8 +273,7 @@ Definition Valuation_update_svar
                    end;
   |}.
 
-Check interpretation_ex.
-Check hmap. Check Pattern.
+Check Ex.
 Fixpoint Valuation_ext {M : Model} (val : @Valuation M)
          (b : SVarBlacklist) (s : sort sigma) (p : Pattern b s) {struct p}
   : Ensemble (mod_carrier M s) :=
@@ -289,7 +288,14 @@ Fixpoint Valuation_ext {M : Model} (val : @Valuation M)
                                 (sorts_of_symbol_args sym)
                                 args
                           )
-                      
+
+  | Ex s b v p =>
+    fun m =>
+      exists m' : mod_carrier M (sort_of_evar sigma v),
+          Ensembles.In
+            (mod_carrier M s)
+            (Valuation_ext (Valuation_update_evar val v m') b s p)
+            m
   | _ => fun m => False
   end.
 (*
