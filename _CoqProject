@@ -6,3 +6,4 @@ src/AML_test.v
 src/Institutions.v
 src/AML_institution.v
 src/MmL.v
+src/PowersetLattice.v
