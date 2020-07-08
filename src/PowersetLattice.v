@@ -31,16 +31,9 @@ Proof.
     apply H. assumption. assumption.
 Qed.
 
-
-
-(* TODO lemma that Meet behaves like a meet. We will use the lemma in the two obligations
-   from the following definition: *)
-Program Instance ModelCompleteLattice
-        {M : Model} {s : sort sigma} : CompleteLattice (Ensemble (mod_carrier M s)) :=
+Instance PowersetLattice : CompleteLattice (Ensemble U) :=
   {| meet := Meet;
      join := joinFromMeet Meet;
+     meet_isMeet := Meet_is_meet;
+     join_isJoin := joinFromMeet_lub (Ensemble U) EnsembleOrderedSet Meet Meet_is_meet
   |}.
-Next Obligation.
-Admitted.
-Next Obligation.
-Admitted.
