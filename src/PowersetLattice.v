@@ -21,9 +21,17 @@ Definition Meet (ee : Ensemble (Ensemble U)) : Ensemble U :=
 
 Lemma Meet_is_meet : isMeet Meet.
 Proof.
-  unfold isMeet. unfold greatestLowerBound. unfold Meet.
+  unfold isMeet. unfold greatestLowerBound. unfold lowerBound.
   intro X. split.
-  - 
+  - intros. simpl. unfold Included. intros. unfold In in H0. unfold Meet in H0.
+    auto.
+  - intros. simpl. unfold Included. intros. unfold leq in H. simpl in H.
+    unfold In. unfold Meet. intros. unfold Included in H.
+    unfold In in *.
+    apply H. assumption. assumption.
+Qed.
+
+
 
 (* TODO lemma that Meet behaves like a meet. We will use the lemma in the two obligations
    from the following definition: *)
